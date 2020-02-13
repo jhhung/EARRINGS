@@ -1,1 +1,1 @@
-# EARINGS
+# EARRINGS
