@@ -15,11 +15,11 @@ AD1 = "AGATCGGAAGAGCACACGTCTGAACTCCAGTCACCACCTAATCTCGTATGCCGTCTTCTGCTTG"
 AD2 = "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGATCTCGGTGGTCGCCGTATCATT"
 
 '''
-python3 script.py [seed] -n [read_num] -m [insert_mean] -std [insert_td] -ad1 [ad1] -ad2 [ad1] -s [prefix] -O [output_dir]
+python3 script.py [seed] -r [ref_genome] -n [read_num] -m [insert_mean] -std [insert_td] -ad1 [ad1] -ad2 [ad1] -s [prefix] -O [output_dir]
 To generate reads without adapters:
-eg. python3 script.py 0 -n 10000 -m 150 -std 50 -ad1 "" -ad2 ""
+eg. python3 script.py 0 -r hg38_chr1.fa -n 10000 -m 150 -std 50 -ad1 "" -ad2 ""
 To generate reads with default adapters:
-eg. python3 script.py 0 -n 10000 -m 150 -std 50
+eg. python3 script.py 0 -r hg38_chr1.fa -n 10000 -m 150 -std 50
 '''
 
 def parser():

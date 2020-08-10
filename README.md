@@ -99,14 +99,14 @@ Please build it first before using it:
 > make
 ```
 pIRS simulates Illumina PE reads from a reference genome. In all the benchmarking except real data benchmarking,
-we use hg38 chr1 as reference genome to simulate reads. One have to modify the path of REF variable in script.py to the path of hg38 chr1.
+we use hg38 chr1 as reference genome to simulate reads.
 Then one can run the simulation by:
 ```sh
-# python3 script.py [seed] -n [read_num] -m [insert_mean] -std [insert_td] -ad1 [ad1] -ad2 [ad1]
+# python3 script.py [seed] -r [ref_genome] -n [read_num] -m [insert_mean] -std [insert_td] -ad1 [ad1] -ad2 [ad1]
 # To generate reads without adapters:
-> python3 script.py 0 -n 10000 -m 150 -std 50 -ad1 "" -ad2 ""
+> python3 script.py 0 -r hg38_chr1.fa -n 10000 -m 150 -std 50 -ad1 "" -ad2 ""
 # To generate reads with default adapters:
-> python3 script.py 0 -n 10000 -m 150 -std 50
+> python3 script.py 0 -r hg38_chr1.fa -n 10000 -m 150 -std 50
 ```
 ## Run Benchmarking
 Before running benchmarking, please install all the prerequisites
