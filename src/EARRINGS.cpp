@@ -21,18 +21,18 @@ int main(int argc, const char* argv[])
 
     std::string help = R"(
     *********************************************************************************
-    +----+
+    +--------+
     |EARRINGS|
-    +----+
+    +--------+
     EARRINGS v1.0
     EARRINGS is an adapter trimmer with no a priori knowledge of adapter sequences.
     Usage:
-    (1) build index
+    (1) build index for single-end adapter detection
     > EARRINGS build -r ref_path -p index_prefix
     (2) adapter trimming
     > EARRINGS single -p index_prefix --skewer input1.fq
-    > EARRINGS paired -i input1.fq -I input2.fq -t thread 
-    See EARRINGS single/paired --help for more information about the parameters
+    > EARRINGS paired -i input1.fq -I input2.fq -t thread_num 
+    See EARRINGS single/paired --help for more information about the parameters.
     *********************************************************************************
     )";
 
@@ -137,15 +137,15 @@ void init_build(int argc, const char* argv[])
     try
     {
         opts.add_options ()
-        ("help,h", "display this help message and exit")
+        ("help,h", "Display help message and exit.")
         ("ref_path,r",
          boost::program_options::
             value<std::string>()->required(),
-            "The genome reference's path")
+            "Path to the reference genome.")
         ("index_prefix,p",
          boost::program_options::
             value<std::string>()->required(),
-            "The index prefix for index table.");
+            "The index prefix for the built index table.");
 
         boost::program_options::variables_map vm;
         boost::program_options::store (
@@ -200,15 +200,15 @@ void init_single(int argc, const char* argv[])
     try
     {
         opts.add_options ()
-        ("help,h", "display this help message and exit")
+        ("help,h", "Display help message and exit.")
         ("index_prefix,p",
          boost::program_options::
             value<std::string>()->required(),
-            "The index path for single-end.")
+            "The index prefix for prebuilt index table.")
         ("seed_len,d",
          boost::program_options::
             value<size_t>()->default_value(50),
-            "Seed length for finding adapters for single end reads. (default: 50)")
+            "Seed length used when aligning reads. For very short reads like miRNA, it is recommended to set seed_len to 18. (default: 50)")
         ("max_align,m",
          boost::program_options::
             value<size_t>()->default_value(0),
@@ -220,16 +220,16 @@ void init_single(int argc, const char* argv[])
         ("prune_factor,f",
          boost::program_options::
             value<float>()->default_value(0.03),
-            "Prune factor used when assembling adapters using debruijn graph. kmer number lower than prune factor will be aborted.(default: 0.03)")
-        ("fasta,F", "Specify that the input is FastA. (Default input file format: FastQ)")
+            "Prune factor used when assembling adapters using the de Bruijn graph. kmer occurence lower than the prune factor will be aborted.(default: 0.03)")
+        ("fasta,F", "Specify input file type as FastA. (Default input file format: FastQ)")
         ("adapter1,a",
         boost::program_options::
             value<std::string>(&DEFAULT_ADAPTER1)->default_value(DEFAULT_ADAPTER1),
-        "Default adapter used when auto-detect fails.")
+        "Default adapter used when auto-detect fails. (default: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)")
         ("sensitive", "Sensitive mode can be used when the user is sure that the dataset contains adapters. \
             Under sensitive mode, we do not restrict the minimum number of kmers when assembly adapters.\
             By default, the minimum number of kmers must exceed 10.")
-        ("skewer,s", "skewer flag, which follows by skewer's program options");
+        ("skewer,s", "Skewer flag, which follows by Skewer's program options.");
         
         boost::program_options::variables_map vm;
         boost::program_options::store (
@@ -340,65 +340,63 @@ Do paired-end adapter trimming operation with instruction like:
     try 
     {
         opts.add_options ()
-        ("help,h", "display this help message and exit")
+        ("help,h", "Display help message and exit.")
         ("input1,i", 
          boost::program_options::
             value<std::string>(&ifs_name[0])->required(), 
-         "The PE input FastQ file 1 (.fq) or Gzip compressed "
-            "FASTQ file (.fq.gz).")
+         "The PE FastQ input file 1 (.fq)")
         ("input2,I", 
          boost::program_options::
             value<std::string>(&ifs_name[1])->required(), 
-         "The PE input FastQ file 2 (.fq) or Gzip compressed "
-            "FASTQ file (.fq.gz).")
+         "The PE FastQ input file 2 (.fq)")
         ("output1,o",
          boost::program_options::
             value<std::string>(&ofs_name[0])->default_value("EARRINGS_1.fq"),
-        "The PE output FastQ file 1 (.fq)")
+        "The PE FastQ output file 1 (.fq) (default: EARRINGS_2.fq)")
         ("output2,O",
          boost::program_options::
             value<std::string>(&ofs_name[1])->default_value("EARRINGS_2.fq"),
-        "The PE output FastQ file 2 (.fq)")
+        "The PE FastQ output file 2 (.fq) (default: EARRINGS_2.fq)")
         ("adapter1,a",
         boost::program_options::
             value<std::string>(&DEFAULT_ADAPTER1)->default_value(DEFAULT_ADAPTER1),
-        "Default adapter 1 when auto-detect fails.")
+        "Default adapter 1 when auto-detect fails. (default: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)")
         ("adapter2,A",
         boost::program_options::
             value<std::string>(&DEFAULT_ADAPTER2)->default_value(DEFAULT_ADAPTER2),
-        "Default adapter 2 when auto-detect fails.")
+        "Default adapter 2 when auto-detect fails. (default: AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTA)")
         ("thread,t", 
          boost::program_options::
             value<size_t>()->default_value(1), 
-         "The number of threads to use.")
+         "The number of threads used to run the program. (default: 1)")
         ("min_length,m",
          boost::program_options::
             value<size_t>()->default_value(0),
-            "Abort reads if reads is less than m.")
+            "Abort the read if the length of the read is less than m. (default: 0)")
         ("adapter_loc,l",
          boost::program_options::
             value<std::string>()->default_value("tail"),
-            "Adapter locates at 5'(head) or 3'(tail). (default: tail)")
+            "Specify the location of the adapter. (default: tail)")
         ("match_rate,M",
          boost::program_options::
             value<float>()->default_value(0.7),
-            "Sequence match rate when detecting possible adapter positions.(default: 0.7)")
+            "Match rate in the first stage of reverse complement scan. (default: 0.7)")
         ("seq_cmp_rate,s",
          boost::program_options::
             value<float>()->default_value(0.9),
-            "Sequence similariy when comparing first strand to the reverse complement of second strand.(default: 0.9)")
+            "Match rate applied in the second stage gene portion check. (default: 0.9)")
         ("adapter_cmp_rate,S",
          boost::program_options::
             value<float>()->default_value(0.8),
-            "Adapter similariy when comparing with detected adapter.(default: 0.8)")
+            "Match rate applied in the third stage adapter portion check. (default: 0.8)")
         ("prune_factor,f",
          boost::program_options::
             value<float>()->default_value(0.03),
-            "Prune factor used when assembling adapters using debruijn graph. kmer number lower than prune factor will be aborted.(default: 0.03)")
+            "Prune factor used when assembling adapters using the de Bruijn graph. kmer occurence lower than prune factor will be aborted.(default: 0.03)")
         ("sensitive", "Sensitive mode can be used when the user is sure that the dataset contains adapters. \
             Under sensitive mode, we do not restrict the minimum number of kmers when assembly adapters.\
             By default, the minimum number of kmers must exceed 10.")
-        ("fasta,F", "Specify that the input is FastA. (Default input file format: FastQ)");
+        ("fasta,F", "Specify input file type as FastA. (default input file format: FastQ)");
         
         boost::program_options::variables_map vm;
         boost::program_options::store (
