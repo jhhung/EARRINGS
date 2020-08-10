@@ -1,3 +1,6 @@
+# EARRINGS
+EARRINGS is an efficient and accurate adapter trimmer entails no a priori adapter sequences.
+
 ## Requirement
 - g++8 and cmake 3.10.0 or higher to build EARRINGS
 - python3.7 or higher to run benchmarking
@@ -28,27 +31,27 @@ EARRINGS first detects adapter then feeds detected adapter to skewer.
 > ./EARRINGS single -p path_to_index. --skewer ../test_data/has_adapter_1.fq
 ```
 #### SE parameters
--h [ --help ]                         Display this help message and exit.<br />
--p [ --index_prefix ] arg             The index path for single-end.<br />
--d [ --seed_len ] arg (=50)           Seed length for finding adapters for
+- -h [ --help ]                         Display this help message and exit.<br />
+- -p [ --index_prefix ] arg             The index path for single-end.<br />
+- -d [ --seed_len ] arg (=50)           Seed length for finding adapters for
                                       single end reads. For very short reads like miRNA, 
                                       it is recommended to set seed_len to 18. (default: 50)<br />
--m [ --max_align ] arg (=0)           Control the maximum number of alignment
+- -m [ --max_align ] arg (=0)           Control the maximum number of alignment
                                       to abort the reads. (default: 0, not
                                       limited)<br />
--e [ --enable_mismatch ] arg (=1)     Enable/disable mismatch when doing seed
+- -e [ --enable_mismatch ] arg (=1)     Enable/disable mismatch when doing seed
                                       finding. (default: true)<br />
--f [ --prune_factor ] arg (=0.03)     Prune factor used when assembling adapters using debruijn graph.
+- -f [ --prune_factor ] arg (=0.03)     Prune factor used when assembling adapters using debruijn graph.
                                       kmer number lower than prune factor will be aborted.(default: 0.03)<br />
--F [ --fasta ]                        Specify that the input is FastA.
+- -F [ --fasta ]                        Specify that the input is FastA.
                                       (Default input file format: FastQ)<br />
--a [ --adapter1 ] arg (=AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)
+- -a [ --adapter1 ] arg (=AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)
                                       Default adapter used when auto-detect fails.<br />
---sensitive                           Sensitive mode can be used when the user is sure that the dataset 
+- --sensitive                           Sensitive mode can be used when the user is sure that the dataset 
                                       contains adapters. Under sensitive mode, we do not restrict the 
                                       minimum number of kmers when assembly adapters. By default, the 
                                       minimum number of kmers must exceed 10.<br/>
--s [ --skewer ]                       skewer flag, which follows by skewer's
+- -s [ --skewer ]                       skewer flag, which follows by skewer's
                                       program options<br />
 
 ### PE
@@ -58,36 +61,36 @@ EARRINGS first detects adapter then feeds detected adapter to skewer.
 > ./EARRINGS paired -i ../test_data/has_adapter_1.fq -I ../test_data/has_adapter_2.fq
 ```
 #### PE parameters
--h [ --help ]                         Display this help message and exit.<br />
--i [ --input1 ] arg                   The PE input FastQ file 1 (.fq)<br />
--I [ --input2 ] arg                   The PE input FastQ file 2 (.fq)<br />
--o [ --output1 ] arg (=EARRINGS_1.fq)     The PE output FastQ file 1 (.fq)<br />
--O [ --output2 ] arg (=EARRINGS_2.fq)     The PE output FastQ file 2 (.fq)<br />
--a [ --adapter1 ] arg (=AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)
+- -h [ --help ]                         Display this help message and exit.<br />
+- -i [ --input1 ] arg                   The PE input FastQ file 1 (.fq)<br />
+- -I [ --input2 ] arg                   The PE input FastQ file 2 (.fq)<br />
+- -o [ --output1 ] arg (=EARRINGS_1.fq)     The PE output FastQ file 1 (.fq)<br />
+- -O [ --output2 ] arg (=EARRINGS_2.fq)     The PE output FastQ file 2 (.fq)<br />
+- -a [ --adapter1 ] arg (=AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)
                                       Default adapter 1 when auto-detect
                                       fails.<br />
--A [ --adapter2 ] arg (=AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTA)
+- -A [ --adapter2 ] arg (=AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTA)
                                       Default adapter 2 when auto-detect
                                       fails.<br />
--t [ --thread ] arg (=1)              The number of threads to use.<br />
--m [ --min_length ] arg (=0)          Abort reads if reads is less than m.<br />
--l [ --adapter_loc ] arg (=tail)      Adapter locates at 5'(head) or
+- -t [ --thread ] arg (=1)              The number of threads to use.<br />
+- -m [ --min_length ] arg (=0)          Abort reads if reads is less than m.<br />
+- -l [ --adapter_loc ] arg (=tail)      Adapter locates at 5'(head) or
                                       3'(tail). (default: tail)<br />
--M [ --match_rate ] arg (=0.7)        Sequence match rate when detecting
+- -M [ --match_rate ] arg (=0.7)        Sequence match rate when detecting
                                       possible adapter positions.(default:
                                       0.7)<br />
--s [ --seq_cmp_rate ] arg (=0.9)      Sequence similariy when comparing first
+- -s [ --seq_cmp_rate ] arg (=0.9)      Sequence similariy when comparing first
                                       strand to the reverse complement of
                                       second strand.(default: 0.9)<br />
--S [ --adapter_cmp_rate ] arg (=0.8)  Adapter similariy when comparing with
+- -S [ --adapter_cmp_rate ] arg (=0.8)  Adapter similariy when comparing with
                                       detected adapter.(default: 0.8)<br />
--f [ --prune_factor ] arg (=0.03)     Prune factor used when assembling adapters using debruijn graph.
+- -f [ --prune_factor ] arg (=0.03)     Prune factor used when assembling adapters using debruijn graph.
                                       kmer number lower than prune factor will be aborted.(default: 0.03)<br />
---sensitive                           Sensitive mode can be used when the user is sure that the dataset 
+- --sensitive                           Sensitive mode can be used when the user is sure that the dataset 
                                       contains adapters. Under sensitive mode, we do not restrict the 
                                       minimum number of kmers when assembly adapters. By default, the 
                                       minimum number of kmers must exceed 10.<br/>
--a [ --fasta ]                        Specify that the input is FastA.
+- -a [ --fasta ]                        Specify that the input is FastA.
                                       (Default input file format: FastQ)<br />
 
 
@@ -155,4 +158,13 @@ to the path where you put all your downloaded datasets/prebuild indices.<br />
 After that, you can conduct real data benchmarking by:
 ```sh
 > python3 benchmark_real_data.py
+```
+
+## Contact
+```
+Jui-Hung Hung <juihunghung@gmail.com>
+
+Ting-Husan Wang <phoebewangintw@gmail.com>
+
+Cheng-Ching Huang <ken5112840801@gmail.com>
 ```
