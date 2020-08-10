@@ -1,0 +1,3 @@
+if((CMAKE_CXX_COMPILER_ID STREQUAL "GNU") OR (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
+    set(SCREW_NO_INLINE -fno-inline)
+endif()

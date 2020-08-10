@@ -1,0 +1,15 @@
+include(BundleUtilities)
+message(STATUS "BUNDLE_RT_DIRS @BUNDLE_RT_DIRS@" )
+file(READ "@CMAKE_BINARY_DIR@/_3rdParty/Hunter/install-root-dir" deps_root_dir)
+message(STATUS "deps_root_dir ${deps_root_dir}")
+file(GLOB_RECURSE lib_paths "${CMAKE_INSTALL_PREFIX}/*@CMAKE_SHARED_LIBRARY_SUFFIX@")
+message(STATUS "lib_paths ${lib_paths}")
+file(GLOB_RECURSE app_paths "${CMAKE_INSTALL_PREFIX}/*@CMAKE_EXECUTABLE_SUFFIX@")
+message(STATUS "app_paths ${app_paths}")
+foreach(app ${app_paths})
+    fixup_bundle(
+        "${app}"
+        ""
+        "${deps_root_dir}/bin;${deps_root_dir}/lib;@BUNDLE_RT_DIRS@"
+    )
+endforeach()

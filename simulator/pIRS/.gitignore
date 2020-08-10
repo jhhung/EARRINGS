@@ -1,0 +1,47 @@
+src/afterclean.lst
+*.fastq
+*.fq
+*.distr
+*.info
+.DS_Store
+*.bak
+*.md5
+._*
+*.[oa]
+*.gch
+*.[0-9]
+*~
+.svn/
+blib/
+simulate_diploid_genome
+simulate_illumina_reads
+gc_coverage_bias
+gc_coverage_bias_plot
+baseCalling_Matrix_analyzer
+baseCalling_Matrix_calculator
+baseCalling_Matrix_merger
+alignment_stator
+core
+core.*
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Kdevelop files
+*.kdev4
+
+# Binaries
+indelstat_sam_bam
+# pirs
+src/pirs/pirs

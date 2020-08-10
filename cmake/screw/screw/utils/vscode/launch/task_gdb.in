@@ -1,0 +1,20 @@
+{
+    "name": "@__screw_launch_task_name@",
+    "type": "cppdbg",
+    "request": "launch",
+    "program": "@CMAKE_INSTALL_PREFIX@/bin/@__screw_launch_task_name@",
+    "args": [],
+    "stopAtEntry": false,
+    "cwd": "@CMAKE_SOURCE_DIR@/workdir",
+    "environment": [],
+    "externalConsole": true,
+    "MIMode": "gdb",
+    "miDebuggerPath": "@SCREW_DEBUGGER@",
+    "setupCommands": [
+        {
+            "description": "Enable pretty-printing for gdb",
+            "text": "-enable-pretty-printing",
+            "ignoreFailures": true
+        }
+    ]
+}

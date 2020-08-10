@@ -1,0 +1,1 @@
+file(READ "${CMAKE_BINARY_DIR}/_3rdParty/Hunter/install-root-dir" hunter_root_dir)
