@@ -17,7 +17,6 @@ EARRINGS is an efficient and accurate adapter trimmer that entails no a priori a
 ## Execution
 
 ### SE
-Since SE algorithm uses alignment-based method to find possible adapter, one have to build index first.
 #### SE build
 Before conducting SE adapter trimming, **one has to prebuild index** once for a specific reference genome.
 #### run SE build
