@@ -1,5 +1,5 @@
 # EARRINGS
-EARRINGS is an efficient and accurate adapter trimmer entails no a priori adapter sequences.
+EARRINGS is an efficient and accurate adapter trimmer that entails no a priori adapter sequences.
 
 ## Requirement
 - g++8 and cmake 3.10.0 or higher to build EARRINGS
