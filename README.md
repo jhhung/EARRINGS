@@ -86,13 +86,13 @@ EARRINGS first detects adapter then feeds the detected adapter to skewer.
 
 ## Run Simulation
 The simulation is carried out using a modified version of pIRS(profile based Illumina pair-end Reads Simulator).
-Please build it first before using it:
+Please build pIRS first before using it:
 ```sh
 > cd simulator/pIRS
 > make
 ```
 pIRS simulates Illumina PE reads from a reference genome. In all the benchmarking except real data benchmarking,
-we use hg38 chr1 as reference genome to simulate reads.
+we use GRCh38 chr1 as reference genome to simulate reads.
 One can run the simulation by:
 ```sh
 # python3 script.py [seed] -r [ref_genome] -n [read_num] -m [insert_mean] -std [insert_td] -ad1 [ad1] -ad2 [ad1]
@@ -117,6 +117,26 @@ and set the locations of all the executions to $PATH:
 11. our modified version of pIRS (see Run Simulation part)<br />
 12. picard 2.23.0<br/>
 
+For speed, memory, performance and adapter benchmarking, please download the first chromosome of GRCh38 from UCSC genome browser.<br />
+For running real data benchmarking, please download the following four datasets and their corresponding reference genome(.fa) from ncbi.
+1. SRR529095: RNA IP-Seq of Argonaute proteins from Homo sapiens
+2. SRR014866: miRNA of C.elegans
+3. SRR330569: RNA-Seq of Gonads and Carcasses in D. simulans and D. pseudoobscura
+4. SRR5000681: ATAC-Seq of Early Embryo replicate in C.elegans
+
+Also, don't forget to install the aligners:
+1. Bowtie2 v2.4.1<br />
+2. HISAT2 v2.2.0<br />
+
+After that, modify path-related variables in path.py to the path where the downloaded datasets were placed.<br />
+Then prebuild indices for the aligners and EARRINGS by running:
+```sh
+> python3 build_index.py
+```
+Run real data benchmarking:
+```sh
+> python3 benchmark_real_data.py
+```
 Run speed benchmarking:
 ```sh
 > python3 benchmark_speed.py
@@ -132,22 +152,6 @@ Run performance benchmarking:
 Run adapter benchmarking:
 ```sh
 > python3 benchmark_adapter.py
-```
-Before running real data benchmarking, please download the following four datasets and their corresponding reference genome(.fa) from ncbi.
-1. SRR529095: RNA IP-Seq of Argonaute proteins from Homo sapiens
-2. SRR014866: miRNA of C.elegans
-3. SRR330569: RNA-Seq of Gonads and Carcasses in D. simulans and D. pseudoobscura
-4. SRR5000681: ATAC-Seq of Early Embryo replicate in C.elegans
-
-Also, don't forget to download the aligners and build indices for them:
-1. Bowtie2 v2.4.1<br />
-2. HISAT2 v2.2.0<br />
-
-After that, modify path-related variables in benchmark_real_data.py and path.py
-to the path where the downloaded datasets/prebuild indices were placed.<br />
-Now, one can conduct real data benchmarking by:
-```sh
-> python3 benchmark_real_data.py
 ```
 
 ## Contact

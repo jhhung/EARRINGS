@@ -75,29 +75,23 @@ def run_PE_align(prog_out, in1, in2, ad1, ad2, aligner_idx, aligner_exe, file_pr
 # We disable auto-detect for atropos and fastp here.
 # Since in this benchmarking, we focus on the ability of trimmers to trim real data.
 
-### modify the following path to correct path ###
-# ref_fa: path to the reference genome
-# in1/in2: path to the input fastq file(s)
-# er_idx: path to the prebuild index of EARRINGS
-# idx: path to the prebuild index of hisat2/bowtie2
-
 # SRR529095: RNA IP-Seq of Argonaute proteins from Homo sapiens
 # aligner: hisat2
 ad1 = "AAAAAAAAAAAAAAAAAAAA"  # low complexity adapters
-# ref_fa = ...
-# in1 = ...
-# er_idx = ...
-# idx = ...
+ref_fa = HG38_REF
+in1 = SRR529095_PATH
+er_idx = HG38_EARRINGS_IDX
+idx = HG38_HISAT2_IDX
 OUTPUT_MIN = 18
 run_SE_align(SE_PROG_OUT, in1, ad1, er_idx, idx, HISAT2_EXE, "SRR529095", 1, min_len=50)
 
 # SRR014966: miRNA of C.elegans
 # aligner: bowtie2
 ad1 = "TCGTATGCCGTCTTCTGCT"
-# ref_fa = ...
-# in1 = ... 
-# er_idx = ...
-# idx = ...
+ref_fa = C_ELEGANS_REF
+in1 = SRR014966_PATH
+er_idx = C_ELEGAN_EARRINGS_IDX
+idx = C_ELEGAN_BOWTIE2_IDX
 OUTPUT_MIN = 18
 run_SE_align(SE_PROG_OUT, in1, ad1, er_idx, idx, BOWTIE2_EXE, "SRR014866", 0, min_len=18)
 
@@ -105,10 +99,10 @@ run_SE_align(SE_PROG_OUT, in1, ad1, er_idx, idx, BOWTIE2_EXE, "SRR014866", 0, mi
 # aligner: hisat2
 ad1 = "AGATCGGAAGAGCGGTTCAGCAGGAATGCCGAGACCG"
 ad2 = "AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTAGAT"
-# ref_fa = ...
-# in1 = ... 
-# in2 = ...
-# idx = ... 
+ref_fa = D_SIMULANS_REF
+in1 = SRR330569_PATH[0]
+in2 = SRR330569_PATH[1]
+idx = D_SIMULANS_HISAT2_IDX
 OUTPUT_MIN = 18
 PE_PROG_OUT_AKA = append_AKA("SRR330569.3_1.fastq", "SRR330569.3_2.fastq", PE_PROG_OUT, "fastq")
 run_PE_align(PE_PROG_OUT_AKA, in1, in2, ad1, ad2, idx, HISAT2_EXE, "SRR330569", ref_fa, [ad1, ad2])
@@ -117,10 +111,10 @@ run_PE_align(PE_PROG_OUT_AKA, in1, in2, ad1, ad2, idx, HISAT2_EXE, "SRR330569", 
 # aligner: bowtie2
 ad1 = "CTGTCTCTTATACACATCTCCGAGCCCACGAG"
 ad2 = "CTGTCTCTTATACACATCTGACGCTGCCGACG"
-# ref_fa = ...
-# in1 = ...
-# in2 = ... 
-# idx = ... 
+ref_fa = C_ELEGANS_REF
+in1 = SRR5000681_PATH[0]
+in2 = SRR5000681_PATH[1]
+idx = C_ELEGAN_BOWTIE2_IDX
 OUTPUT_MIN = 18
 PE_PROG_OUT_AKA = append_AKA("SRR5000681.1_1.fastq", "SRR5000681.1_2.fastq", PE_PROG_OUT, "fastq")
 run_PE_align(PE_PROG_OUT_AKA, in1, in2, ad1, ad2, idx, BOWTIE2_EXE, "SRR5000681", ref_fa, [ad1, ad2])
