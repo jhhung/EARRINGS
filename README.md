@@ -51,6 +51,8 @@ EARRINGS first detects adapter then feeds the detected adapter to skewer.
                                         contains adapters. Under sensitive mode, we do not restrict the 
                                         minimum number of kmers when assembly adapters. By default, the 
                                         minimum number of kmers must exceed 10.<br/>
+- -b [ --bam_input ] arg                Detect and trim off adapters from a BAM file.<br/>
+- -u [ --UMI ]                          Estimate the size of UMI sequences.<br/>
 - -s [ --skewer ]                       Skewer flag, which follows by Skewer's program options.<br />
 
 ### PE
@@ -72,9 +74,9 @@ EARRINGS first detects adapter then feeds the detected adapter to skewer.
 - -t [ --thread ]                       The number of threads used to run the program. (default: 1)<br />
 - -m [ --min_length ]                   Abort the read if the length of the read is less than m. (default: 0)<br />
 - -l [ --adapter_loc ]                  Specify the location of the adapter. (default: tail)<br />
-- -M [ --match_rate ]                   Match rate in the first stage of reverse complement scan. (default: 0.7)<br />
-- -s [ --seq_cmp_rate ]                 Match rate applied in the second stage gene portion check. (default: 0.9)<br />
-- -S [ --adapter_cmp_rate ]             Match rate applied in the third stage adapter portion check. (default: 0.8)<br />
+- -M [ --rc_thres ]                     Setting the threshold of reverse complement check. (default: 0.7)<br />
+- -s [ --ss_thres ]                     Setting the threshold of gene portion check. (default: 0.9)<br />
+- -S [ --as_thres ]                     Setting the threshold of adapter portion check. (default: 0.8)<br />
 - -f [ --prune_factor ]                 Prune factor used when assembling adapters using the de Bruijn graph.
                                         kmer occurence lower than the prune factor will be aborted. (default: 0.03)<br />
 - --sensitive                           Sensitive mode can be used when the user is sure that the dataset 
@@ -82,6 +84,7 @@ EARRINGS first detects adapter then feeds the detected adapter to skewer.
                                         minimum number of kmers when assembly adapters. By default, the 
                                         minimum number of kmers must exceed 10.<br/>
 - -F [ --fasta ]                        Specify input file type as FastA. (default input file format: FastQ)<br />
+- -b [ --bam_input ] arg                Detect and trim off adapters from a BAM file.<br />
 
 
 ## Run Simulation

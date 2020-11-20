@@ -130,6 +130,7 @@ class FMIndex
 	{
 		SEQ seq;
 		IndexType seg_pos(0);
+        
 		for (std::string buf; std::getline(is, buf);)
 		{
 			if (buf.front() != '>')

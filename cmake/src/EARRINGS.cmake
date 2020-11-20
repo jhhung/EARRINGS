@@ -16,5 +16,6 @@ target_link_libraries(${__screw_target} PUBLIC
     pthread
     stdc++fs
     skewer
+    ZLIB::zlib
 )
 

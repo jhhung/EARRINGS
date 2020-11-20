@@ -6,6 +6,7 @@
 #include <boost/program_options.hpp>
 #include <EARRINGS/SE/SE_auto_detect.hpp>
 #include <EARRINGS/PE/PE_trimmer.hpp>
+#include <EARRINGS/estimate_adapter_from_BAMS.hpp>
 #include <EARRINGS/common.hpp>
 #include "skewer/main.hpp"
 #include "skewer/parameter.h"
@@ -56,8 +57,7 @@ int main(int argc, const char* argv[])
                 break;
             }
         }
-        // std::cout << "earrings argc: " << earrings_argc << "\n";
-        // std::cout << "total argc: " << argc << "\n";
+        
         std::vector<const char*> skewer_argv(argc - earrings_argc + 3);
         skewer_argv[0] = "skewer";  // skewer is required to install beforehead.
 
@@ -87,9 +87,25 @@ int main(int argc, const char* argv[])
             }
             return 1;
         }
-        std::string input_path = std::string{para.input[0]};
-        std::cout << "input: " << input_path << "\n";
-		auto adapter_info = seat_adapter_auto_detect(input_path, para.nThreads);  // auto-detect adapter 
+
+        ifs_name[0] = std::string{para.input[0]};
+        std::cout << "input: " << ifs_name[0] << "\n";
+        
+        if (!bam_fname.empty())
+        {
+            std::cerr << "Processing BAM file...\n";
+            auto num_records = Process_uBAMs::extract_reads_from_uBAMs(
+                                                    bam_fname
+                                                  , ifs_name[0]);
+            std::cerr << "Finish processing BAM file!\n";
+            // check if the number of unaligned BAM records is gt than DETECT_N_READS
+            if (num_records < DETECT_N_READS)
+            {
+                std::cerr << "Warning: Too few unaligned BAM records: " << num_records << "\n";
+            }
+        }
+
+		auto adapter_info = seat_adapter_auto_detect(ifs_name[0], para.nThreads);  // auto-detect adapter 
         skewer_argv[skewer_argv.size() - 2] = "-x";
         skewer_argv[skewer_argv.size() - 1] = std::get<0>(adapter_info).c_str();
         if (std::get<1>(adapter_info))
@@ -102,6 +118,19 @@ int main(int argc, const char* argv[])
     else if (std::string(argv[1]) == "paired")
     {
         init_paired(argc, argv);
+
+        if (!bam_fname.empty())
+        {
+            auto num_records = Process_uBAMs::extract_reads_from_uBAMs(
+                                                    bam_fname
+                                                  , ifs_name[0]
+                                                  , ifs_name[1]);
+            // check if the number of unaligned BAM records is gt than DETECT_N_READS
+            if (num_records < DETECT_N_READS)
+            {
+                std::cerr << "Warning: Too few unaligned BAM records: " << num_records << "\n";
+            }
+        }
         PE_trim();
     }
     else if (std::string(argv[1]) == "build")
@@ -229,6 +258,11 @@ void init_single(int argc, const char* argv[])
         ("sensitive", "Sensitive mode can be used when the user is sure that the dataset contains adapters. \
             Under sensitive mode, we do not restrict the minimum number of kmers when assembly adapters.\
             By default, the minimum number of kmers must exceed 10.")
+        ("bam_input,b", 
+        boost::program_options::
+            value<std::string>(&bam_fname)->default_value(""),
+            "Detect and trim off adapters from a BAM file.")
+        ("UMI,u", "Estimate the size of UMI sequences.")
         ("skewer,s", "Skewer flag, which follows by Skewer's program options.");
         
         boost::program_options::variables_map vm;
@@ -281,7 +315,7 @@ void init_single(int argc, const char* argv[])
             }
         }
         
-        if (vm.count("fasta"))
+        if (vm.count("fasta") || !bam_fname.empty())
         {
             is_fastq = false;
         }
@@ -289,6 +323,11 @@ void init_single(int argc, const char* argv[])
         if (vm.count("sensitive"))
         {
             is_sensitive = true;
+        }
+
+        if (vm.count("UMI"))
+        {
+            estimate_umi_len = true;
         }
 
         if (!vm.count("skewer"))
@@ -377,18 +416,18 @@ Do paired-end adapter trimming operation with instruction like:
          boost::program_options::
             value<std::string>()->default_value("tail"),
             "Specify the location of the adapter. (default: tail)")
-        ("match_rate,M",
+        ("rc_thres,M",
          boost::program_options::
             value<float>()->default_value(0.7),
-            "Match rate in the first stage of reverse complement scan. (default: 0.7)")
-        ("seq_cmp_rate,s",
+            "Setting the threshold of reverse complement check. (default: 0.7)")
+        ("ss_thres,s",
          boost::program_options::
             value<float>()->default_value(0.9),
-            "Match rate applied in the second stage gene portion check. (default: 0.9)")
-        ("adapter_cmp_rate,S",
+            "Setting the threshold of gene portion check. (default: 0.9)")
+        ("as_thres,S",
          boost::program_options::
             value<float>()->default_value(0.8),
-            "Match rate applied in the third stage adapter portion check. (default: 0.8)")
+            "Setting the threshold of adapter portion check. (default: 0.8)")
         ("prune_factor,f",
          boost::program_options::
             value<float>()->default_value(0.03),
@@ -396,7 +435,11 @@ Do paired-end adapter trimming operation with instruction like:
         ("sensitive", "Sensitive mode can be used when the user is sure that the dataset contains adapters. \
             Under sensitive mode, we do not restrict the minimum number of kmers when assembly adapters.\
             By default, the minimum number of kmers must exceed 10.")
-        ("fasta,F", "Specify input file type as FastA. (default input file format: FastQ)");
+        ("fasta,F", "Specify input file type as FastA. (default input file format: FastQ)")
+        ("bam_input,b", 
+         boost::program_options::
+            value<std::string>(&bam_fname)->default_value(""),
+            "Detect and trim off adapters from a BAM file.");
         
         boost::program_options::variables_map vm;
         boost::program_options::store (
@@ -442,7 +485,7 @@ Do paired-end adapter trimming operation with instruction like:
             }
         }
 
-        if (vm.count("fasta"))
+        if (vm.count("fasta") || !bam_fname.empty())
         {
             is_fastq = false;
         }
@@ -452,9 +495,9 @@ Do paired-end adapter trimming operation with instruction like:
             is_sensitive = true;
         }
 
-        match_rate = vm["match_rate"].as<float>() > 0.0 ? vm["match_rate"].as<float>() : 0.7;
-        seq_cmp_rate = vm["seq_cmp_rate"].as<float>() > 0.0 ? vm["seq_cmp_rate"].as<float>() : 0.9;
-        adapter_cmp_rate = vm["adapter_cmp_rate"].as<float>() > 0.0 ? vm["adapter_cmp_rate"].as<float>() : 0.8;
+        match_rate = (vm["rc_thres"].as<float>() > 0.0 && vm["rc_thres"].as<float>() < 1.0) ? vm["rc_thres"].as<float>() : 0.7;
+        seq_cmp_rate = (vm["ss_thres"].as<float>() > 0.0 && vm["ss_thres"].as<float>() < 1.0) ? vm["ss_thres"].as<float>() : 0.9;
+        adapter_cmp_rate = (vm["as_thres"].as<float>() > 0.0 && vm["as_thres"].as<float>() < 1.0) ? vm["as_thres"].as<float>() : 0.8;
 
         std::cout << "# of threads: " << thread_num << ", Prune factor: " << prune_factor << ", Minimum output length: " << min_length << std::endl;
         std::cout << "Match rate: " << match_rate << ", Seq cmp rate: " << seq_cmp_rate << ", Adapter cmp rate: " << adapter_cmp_rate << std::endl; 
