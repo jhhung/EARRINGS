@@ -44,8 +44,8 @@ public:
     , rc_fm_index(c_to_o, o_to_c)
     , para_pack(pack)
   {
-    fm_index.load(prefix_name + "table");
-    rc_fm_index.load(prefix_name + "rc_table");
+    fm_index.load(prefix_name + ".table");
+    rc_fm_index.load(prefix_name + ".rc_table");
     // Test //
     std::cout << "load table success" << std::endl;
     pack.print();   
