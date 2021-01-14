@@ -20,17 +20,21 @@ int main(int argc, const char* argv[])
     std::chrono::time_point<std::chrono::steady_clock> start, end;
     start = std::chrono::steady_clock::now();
 
+    std::string ver = GET_EARRINGS_VERSION;
     std::string help = R"(
     *********************************************************************************
     +--------+
     |EARRINGS|
     +--------+
-    EARRINGS v1.0
-    EARRINGS is an adapter trimmer with no a priori knowledge of adapter sequences.
+    EARRINGS v)" + ver + 
+    R"( is an adapter trimmer with no a priori knowledge of adapter sequences.
     Usage:
-    (1) build index for single-end adapter detection
+    (1) Build index for reference sequence, this step is only apply to single-end ada
+        pter detection.
     > EARRINGS build -r ref_path -p index_prefix
-    (2) adapter trimming
+    (2) Adapter trimming
+        Note that all parameters after "--skewer" would be passed to skewer, so 
+        parameters for EARRING should be placed before "--skewer".
     > EARRINGS single -p index_prefix --skewer input1.fq
     > EARRINGS paired -i input1.fq -I input2.fq -t thread_num 
     See EARRINGS single/paired --help for more information about the parameters.
@@ -283,10 +287,13 @@ void init_single(int argc, const char* argv[])
         if (vm.count("index_prefix"))
         {
             index_prefix = vm["index_prefix"].as<std::string>();
-            if (!std::experimental::filesystem::exists(index_prefix + "table") || 
-                !std::experimental::filesystem::exists(index_prefix + "rc_table"))
+            if (!std::experimental::filesystem::exists(index_prefix + ".table") || 
+                !std::experimental::filesystem::exists(index_prefix + ".rc_table"))
             {
-                throw std::runtime_error("Index does not exist! Please build index first.");
+                throw std::runtime_error(
+                        "Index " + index_prefix + ".table or " + index_prefix + ".rc_table "
+                        "does not exist! Please build index first."
+                    );
             }
         }
         
@@ -383,19 +390,19 @@ Do paired-end adapter trimming operation with instruction like:
         ("input1,i", 
          boost::program_options::
             value<std::string>(&ifs_name[0])->required(), 
-         "The PE FastQ input file 1 (.fq)")
+         "The Paired-End FastQ input file 1 (.fq)")
         ("input2,I", 
          boost::program_options::
             value<std::string>(&ifs_name[1])->required(), 
-         "The PE FastQ input file 2 (.fq)")
+         "The Paired-End FastQ input file 2 (.fq)")
         ("output1,o",
          boost::program_options::
             value<std::string>(&ofs_name[0])->default_value("EARRINGS_1.fq"),
-        "The PE FastQ output file 1 (.fq) (default: EARRINGS_2.fq)")
+        "The Paired-End FastQ output file 1 (.fq) (default: EARRINGS_2.fq)")
         ("output2,O",
          boost::program_options::
             value<std::string>(&ofs_name[1])->default_value("EARRINGS_2.fq"),
-        "The PE FastQ output file 2 (.fq) (default: EARRINGS_2.fq)")
+        "The Paired-End FastQ output file 2 (.fq) (default: EARRINGS_2.fq)")
         ("adapter1,a",
         boost::program_options::
             value<std::string>(&DEFAULT_ADAPTER1)->default_value(DEFAULT_ADAPTER1),

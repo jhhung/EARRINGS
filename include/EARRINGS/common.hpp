@@ -4,6 +4,11 @@
 #include <vector>
 #include <string_view>
 #include <experimental/filesystem>
+#include <EARRINGS/version.h>
+
+#define GET_STR(arg)			#arg
+#define GET_VERSION(ver)		GET_STR(ver)
+#define GET_EARRINGS_VERSION	GET_VERSION(EARRINGS_VERSION)
 
 // for both SE and PE
 bool is_fastq = true;

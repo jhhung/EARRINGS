@@ -274,6 +274,8 @@ class build_tables
   void operator()(const std::string& filename, const std::string& prefix_name) const
   {
     std::ifstream input(filename);
+    if (!input.is_open())
+      throw std::runtime_error("Can't open input reference file\n");
     Seq seq;
   
     Indexer index_table(char_to_order, order_to_char);
@@ -291,8 +293,8 @@ class build_tables
     
     rc_index_table.build(seq, rc_sbwt);
     
-    index_table.save(prefix_name + "table");
-    rc_index_table.save(prefix_name + "rc_table");
+    index_table.save(prefix_name + ".table");
+    rc_index_table.save(prefix_name + ".rc_table");
   }
 };
 
