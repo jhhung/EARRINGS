@@ -32,7 +32,7 @@ There are 3 modes to execute EARRINGS: build, single, paired.
 
 Single mode and paired mode are used for single-end reads and paired-end reads respectively.
 
-Build mode generate an index for source reference sequence of target single-end reads.
+Build mode generates an index for source reference sequence of target single-end reads.
 
 ### **Single-End**
 
@@ -67,24 +67,31 @@ Single-End mode parameters
 
 - Required
   - -p [ --index_prefix ] The index prefix for pre-built index table.
-  - -s [ --skewer ] Skewer flag, options after this would be fed to skewer.
+  - -s [ --skewer ] Skewer flag, options after this would be fed to Skewer, such as input</br> 
+  					file name and the number of thread used to run the program. These two parameters</br> 
+  					will also be used by EARRINGS. Moreover, EARRINGS will pass the auto-detected</br> 
+  					adapter sequence to Skewer.
 - Optional
   - -h [ --help ] Display help message and exit.
-  - -d [ --seed_len ] Seed length used when aligning reads. For very short reads like miRNA, it is </br>
-        recommended to set seed_len to 18. (default: 50)
-  - -m [ --max_align ] Control the maximum number of alignment to abort the reads. (default: 0, </br>
-        not limited)
-  - -e [ --enable_mismatch ] Enable/disable mismatch when doing seed finding. (default: true)
+  - -d [ --seed_len ] The first seed_len bases at 5' portion is viewed as seed when conducting alignment.</br> 
+  		EARRINGS allows at most one mismatch in the seed portion if enable_mismatch is set to true.</br> 
+  		Reads will be aborted if more than one mismatch is found in the seed portion. If one mismatch</br> 
+  		is found outside the seed region, the remainder is reported as a tail. It is recommended to set</br> 
+  		the seed_len to 18 for very short reads like miRNA, otherwise, it is recommended to set it to 50. (default: 50)
+  - -m [ --max_align ] Maximum number of candidates used in seed finding stage. (default: 0, not limited)
+  - -e [ --enable_mismatch ] Enable/disable mismatch when conducting seed finding. (default: true)
   - -f [ --prune_factor ] Prune factor used when assembling adapters using the de-brujin graph. </br>
-        Kmer occurence lower than the prune factor will be aborted. (default: 0.03)
+        Kmer frequency lower than the prune factor will be aborted. (default: 0.03)
   - -F [ --fasta ] Specify input file type as FastA. (Default input file format: FastQ)
-  - -a [ --adapter1 ] Alternative adapter if auto-detect mechanism fails.</br>
+  - -a [ --adapter ] Alternative adapter if auto-detect mechanism fails.</br>
         (default: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)
   - --sensitive Sensitive mode can be used when the user is sure that the dataset contains adapters.</br>
-        Under sensitive mode, we do not restrict the minimum number of kmers when assembly adapters.</br>
-        By default, the minimum number of kmers must exceed 10.
-  - -b [ --bam_input ] Detect and trim off adapters from a BAM file.
-  - -u [ --UMI ] Estimate the size of UMI sequences.
+        Under sensitive mode, we do not restrict the minimum number of occurence of kmers when assembly</br>
+        adapters. By default, the minimum number of occurence of kmers must exceed 10.
+  - -b [ --bam_input ] Transform reads in a BAM file into a FastA file. Then trim off adapters from</br>
+  		the FastA file. The file name of the untrimmed Fasta file is specified by the input file name</br>
+  		for Skewer, while the file name of the trimmed Fasta file is also specified by the output file name for Skewer.
+  - -u [ --UMI ] Estimate the size of UMI sequences. The result will be printed on the screen.
 
 ### **Paired-End**
 
@@ -110,17 +117,18 @@ Paired-end mode parameters
         (default: AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTA)
   - -t [ --thread ] The number of threads used to run the program. (default: 1)
   - -m [ --min_length ] Abort the read if the length of the read is less than m. (default: 0)
-  - -l [ --adapter_loc ] Specify the location of the adapter. (default: tail)
-  - -M [ --rc_thres ] Setting the threshold of reverse complement check. (default: 0.7)
-  - -s [ --ss_thres ] Setting the threshold of gene portion check. (default: 0.9)
-  - -S [ --as_thres ] Setting the threshold of adapter portion check. (default: 0.8)
+  - -M [ --rc_thres ] Mismatch threshold applied in reverse complement scan. (default: 0.7)
+  - -s [ --ss_thres ] Mismatch threshold applied in gene portion check. (default: 0.9)
+  - -S [ --as_thres ] Mismatch threshold applied in adapter portion check. (default: 0.8)
   - -f [ --prune_factor ] Prune factor used when assembling adapters using the de Bruijn graph. kmer</br>
-        occurence lower than the prune factor will be aborted. (default: 0.03)
+        frequency lower than the prune factor will be aborted. (default: 0.03)
   - --sensitive Sensitive mode can be used when the user is sure that the dataset contains adapters.</br>
-        Under sensitive mode, we do not restrict the minimum number of kmers when assembly adapters.</br>
-        By default, the minimum number of kmers must exceed 10.
+        Under sensitive mode, we do not restrict the minimum number of occurence of kmers when assembly adapters.</br>
+        By default, the minimum number of occurence of kmers must exceed 10.
   - -F [ --fasta ] Specify input file type as FastA. (default input file format: FastQ)
-  - -b [ --bam_input ] Detect and trim off adapters from a BAM file.
+  - -b [ --bam_input ] Transform reads in a BAM file into two FastA files. Then trim off adapters</br> 
+  		from the FastA files. The file names of the untrimmed Fasta files are determined by input1 and</br> 
+  		input2, while the file names of the trimmed Fasta files are determined by output1 and output2.
 
 ## Run Simulation
 
