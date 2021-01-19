@@ -4,14 +4,15 @@ EARRINGS is an efficient and accurate adapter trimmer that entails no a priori a
 
 ## Information
 
-EARRINGS is the successor of [PEAT](https://github.com/jhhung/PEAT), and PEAT would be no longer depelop anymore.
+EARRINGS is the successor of [PEAT](https://github.com/jhhung/PEAT), and [PEAT](https://github.com/jhhung/PEAT) would be no longer depelop anymore.
 
 In single-end mode, EARRING borrow [skewer](https://github.com/relipmoc/skewer)'s help to do trimming after auto-detecting most possible adapter.
 
 ## Requirement
 
-- [g++-8](https://gcc.gnu.org/gcc-8/) and cmake [3.10.0](https://cmake.org/download/) or higher to build EARRINGS
-- python3.7 or higher to run benchmarking
+- [g++-8](https://gcc.gnu.org/gcc-8/) and [cmake 3.10.0](https://cmake.org/download/) or higher to build EARRINGS
+- python3.7 or higher to run simulation and benchmarking
+- numpy package to run simulation and benchmarking
 
 ## Build
 
@@ -49,10 +50,10 @@ genome which is the source of target reads.
 Build parameters
 
 - Required
-  - -r [ --ref_path ]                     Path to the reference genome.
-  - -p [ --index_prefix ]                 The index prefix for the built index table.
+  - -r [ --ref_path ] Path to the reference sequence, which is the source of reads.
+  - -p [ --index_prefix ] A user-defined index prefix for index table.
 - Optional
-  - -h [ --help ]                         Display help message and exit.
+  - -h [ --help ] Display help message and exit.
 
 ### Execute Single-End trimming
 
@@ -72,26 +73,36 @@ Single-End mode parameters
   					will also be used by EARRINGS. Moreover, EARRINGS will pass the auto-detected</br> 
   					adapter sequence to Skewer.
 - Optional
-  - -h [ --help ] Display help message and exit.
-  - -d [ --seed_len ] The first seed_len bases at 5' portion is viewed as seed when conducting alignment.</br> 
-  		EARRINGS allows at most one mismatch in the seed portion if enable_mismatch is set to true.</br> 
-  		Reads will be aborted if more than one mismatch is found in the seed portion. If one mismatch</br> 
-  		is found outside the seed region, the remainder is reported as a tail. It is recommended to set</br> 
-  		the seed_len to 18 for very short reads like miRNA, otherwise, it is recommended to set it to 50. (default: 50)
-  - -m [ --max_align ] Maximum number of candidates used in seed finding stage. (default: 0, not limited)
-  - -e [ --enable_mismatch ] Enable/disable mismatch when conducting seed finding. (default: true)
-  - -f [ --prune_factor ] Prune factor used when assembling adapters using the de-brujin graph. </br>
-        Kmer frequency lower than the prune factor will be aborted. (default: 0.03)
-  - -F [ --fasta ] Specify input file type as FastA. (Default input file format: FastQ)
-  - -a [ --adapter ] Alternative adapter if auto-detect mechanism fails.</br>
-        (default: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)
-  - --sensitive Sensitive mode can be used when the user is sure that the dataset contains adapters.</br>
-        Under sensitive mode, we do not restrict the minimum number of occurence of kmers when assembly</br>
-        adapters. By default, the minimum number of occurence of kmers must exceed 10.
-  - -b [ --bam_input ] Transform reads in a BAM file into a FastA file. Then trim off adapters from</br>
-  		the FastA file. The file name of the untrimmed Fasta file is specified by the input file name</br>
-  		for Skewer, while the file name of the trimmed Fasta file is also specified by the output file name for Skewer.
-  - -u [ --UMI ] Estimate the size of UMI sequences. The result will be printed on the screen.
+  - Utils
+    - -h [ --help ] Display help message and exit.
+  - Input / Output
+    - -b [ --bam_input ] Transform reads in a BAM file into a FastA file, then trim off adapters from </br>
+  		    the FastA file.</br>
+            The file name of the input and output Fasta file could be set by parameters of Skewer.</br>
+    - -F [ --fasta ] Specify input file type as FastA. (Default input file format: FastQ)
+  - Extract seeds / Alignment
+      - -d [ --seed_len ] The first <seed_len> bases at 5' portion is viewed as seed when conducting </br>
+            alignment, and errors are not allowed in seed or this read would be aborted.</br>
+            If an error is found out of the seed, the remainder sequence is reported as a tail, this </br>
+            function is useful to detect tails in miRNA.</br>
+            For miRNA or reads which is very short, seed_len = 18 is recommended. Otherwise, 50 is </br>
+            recommended. (default: 50)
+    - -e [ --enable_mismatch ] Enable/disable mismatch toleration when doing seed extending, if true, </br>
+            it can tolerate 1 error base at most. (default: true)
+    - -m [ --max_align ] Control the maximum threshold of alignment candidate to abort the reads. </br>
+            (default: 0, not limited)
+  - Assemble adapter
+    - -f [ --prune_factor ] Prune factor used when assembling adapters using the de-brujin graph. </br>
+            Kmer occurrence lower than the prune factor will be aborted. (default: 0.03)
+    - --sensitive By default, minimum number of kmers must exceed 10 during assembly adapters.</br>
+            However, if user have confidence that the dataset contains adapters, sensitive mode is </br>
+            more suitable.
+            Under sensitive mode, minimum number of kmers would not be restricted when assembly </br>
+            adapters.
+  - Adapter setting
+    - -a [ --adapter1 ] Alternative adapter if auto-detect mechanism fails.</br>
+            (default: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)
+    - -u [ --UMI ] Estimate the size of UMI sequences, results will be printed to console by default.
 
 ### **Paired-End**
 
@@ -108,27 +119,38 @@ Paired-end mode parameters
   - -i [ --input1 ] The PE FastQ input file 1 (.fq)
   - -I [ --input2 ] The PE FastQ input file 2 (.fq)
 - Optional
-  - -h [ --help ] Display help message and exit.
-  - -o [ --output1 ] The PE FastQ output file 1 (.fq) (default: EARRINGS_2.fq)
-  - -O [ --output2 ] The PE FastQ output file 2 (.fq) (default: EARRINGS_2.fq)
-  - -a [ --adapter1 ] Default adapter 1 when auto-detect fails.</br>
-        (default: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)
-  - -A [ --adapter2 ] Default adapter 2 when auto-detect fails.</br>
-        (default: AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTA)
-  - -t [ --thread ] The number of threads used to run the program. (default: 1)
-  - -m [ --min_length ] Abort the read if the length of the read is less than m. (default: 0)
-  - -M [ --rc_thres ] Mismatch threshold applied in reverse complement scan. (default: 0.7)
-  - -s [ --ss_thres ] Mismatch threshold applied in gene portion check. (default: 0.9)
-  - -S [ --as_thres ] Mismatch threshold applied in adapter portion check. (default: 0.8)
-  - -f [ --prune_factor ] Prune factor used when assembling adapters using the de Bruijn graph. kmer</br>
-        frequency lower than the prune factor will be aborted. (default: 0.03)
-  - --sensitive Sensitive mode can be used when the user is sure that the dataset contains adapters.</br>
-        Under sensitive mode, we do not restrict the minimum number of occurence of kmers when assembly adapters.</br>
-        By default, the minimum number of occurence of kmers must exceed 10.
-  - -F [ --fasta ] Specify input file type as FastA. (default input file format: FastQ)
-  - -b [ --bam_input ] Transform reads in a BAM file into two FastA files. Then trim off adapters</br> 
-  		from the FastA files. The file names of the untrimmed Fasta files are determined by input1 and</br> 
-  		input2, while the file names of the trimmed Fasta files are determined by output1 and output2.
+  - Utils
+    - -h [ --help ] Display help message and exit.
+    - -t [ --thread ] The number of threads used to run the program. (default: 1)
+  - Input / Output
+    - -F [ --fasta ] Specify input file type as FastA. (default input file format: FastQ)
+    - -b [ --bam_input ] Detect and trim off adapters from a BAM file.
+    - -b [ --bam_input ] Transform reads in a BAM file into two FastA files. Then trim off adapters</br> 
+  		    from the FastA files. The file names of the untrimmed Fasta files are determined by input1 </br>
+            and input2, while the file names of the trimmed Fasta files are determined by output1 and </br>
+            output2.
+    - -o [ --output1 ] The PE FastQ output file 1 (.fq) (default: EARRINGS_2.fq)
+    - -O [ --output2 ] The PE FastQ output file 2 (.fq) (default: EARRINGS_2.fq)
+  - Extract seeds / Alignment
+    - -m [ --min_length ] Abort the read if the length of the read is less than m. (default: 0)
+  - Assemble adapter
+    - -f [ --prune_factor ] Prune factor used when assembling adapters using the de Bruijn graph. kmer</br>
+            frequency lower than the prune factor will be aborted. (default: 0.03)
+    - --sensitive Sensitive mode can be used when the user is sure that the dataset contains adapters.</br>
+            Under sensitive mode, we do not restrict the minimum number of occurrence of kmers when </br>
+            assembly adapters.</br>
+            By default, the minimum number of occurrence of kmers must exceed 10.
+  - Trimming
+    - -M [ --rc_thres ] Mismatch threshold applied in reverse complement scan. (default: 0.7)
+    - -s [ --ss_thres ] Mismatch threshold applied in gene portion check. (default: 0.9)
+    - -S [ --as_thres ] Mismatch threshold applied in adapter portion check. (default: 0.8)
+  - Adapter setting
+    - -a [ --adapter1 ] Default adapter 1 when auto-detect fails.</br>
+            (default: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)
+    - -A [ --adapter2 ] Default adapter 2 when auto-detect fails.</br>
+            (default: AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTA)
+    - -l [ --adapter_loc ] Specify the location of the adapter is at head side or tail side. </br>
+            (default: tail)
 
 ## Run Simulation
 
@@ -185,7 +207,7 @@ Also, don't forget to install the aligners:
 1. Bowtie2 v2.4.1
 2. HISAT2 v2.2.0
 
-After that, modify path-related variables in path.py to the path where the downloaded datasets were placed.
+After that, modify path-related variables in path&#46;py to the path where the downloaded datasets were placed.
 Then prebuild indices for the aligners and EARRINGS by running:
 
 ```sh
@@ -221,6 +243,17 @@ Run adapter benchmarking:
 ```sh
 > python3 benchmark_adapter.py
 ```
+
+## Reference
+
+1. Li, Y.-L., Weng, J.-C., Hsiao, C.-C., Chou, M.-T., Tseng, C.-W., & Hung, J.-H. (2015). PEAT: an intelligent and efficient paired-end sequencing adapter trimming algorithm. BMC Bioinformatics, 16(Suppl 1), S2. doi:10.1186/1471-2105-16-S1-S2
+2. Jiang, H., Lei, R., Ding, S.W. and Zhu, S. (2014) Skewer: a fast and accurate adapter trimmer for next-generation sequencing paired-end reads. BMC Bioinformatics, 15, 182.
+3. Hu, X., et al. (2012) pIRS: Profile-based Illumina pair-end reads simulator, Bioinformatics, 28, 1533-1535.
+4. Chou, M.-T., Han, B. W., Hsiao, C.-P., Zamore, P. D., Weng, Z., and Hung, J.-H. (2015). Tailor: a computational framework for detecting non-templated tailing of small silencing RNAs. Nucleic Acids Res. 43, e109.
+
+## Citation
+
+Wang et al. EARRINGS: An Efficient and Accurate Adapter Trimmer Entails No a Priori Adapter Sequences. Bioinformatics. Accepted.
 
 ## Contact
 
