@@ -1,18 +1,17 @@
 # EARRINGS
 
-EARRINGS is an efficient and accurate adapter trimmer that entails no a priori adapter sequences.
+EARRINGS is an efficient and accurate adapter trimmer that entails no a priori adapter sequences for both single- and paired-end NGS reads.
 
 ## Information
 
-EARRINGS is the successor of [PEAT](https://github.com/jhhung/PEAT), and [PEAT](https://github.com/jhhung/PEAT) would be no longer depelop anymore.
+EARRINGS is a more powerful and capable successor of [PEAT](https://github.com/jhhung/PEAT), which is now deprecated.
 
-In single-end mode, EARRING borrow [skewer](https://github.com/relipmoc/skewer)'s help to do trimming after auto-detecting most possible adapter.
+Like PEAT, EARRING adapts [skewer](https://github.com/relipmoc/skewer)for single-end read trimming.
 
 ## Requirement
 
-- [g++-8](https://gcc.gnu.org/gcc-8/) and [cmake 3.10.0](https://cmake.org/download/) or higher to build EARRINGS
-- python3.7 or higher to run simulation and benchmarking
-- numpy package to run simulation and benchmarking
+- [g++-8](https://gcc.gnu.org/gcc-8/) and cmake [3.10.0](https://cmake.org/download/) or higher to build EARRINGS
+- python3.7 or higher for the benchmarking
 
 ## Build
 
@@ -29,22 +28,24 @@ In single-end mode, EARRING borrow [skewer](https://github.com/relipmoc/skewer)'
 
 ## Execution
 
-There are 3 modes to execute EARRINGS: build, single, paired.
+There are 3 modes to execute EARRINGS: **build**, **single**, and **paired**.
+
+Build mode generates an index for the source reference sequence (e.g., the entire genome, a chromosome, a collection of panel genes, etc.) of the **single-end** reads. The index is **not** used for trimming paired-end reads.
 
 Single mode and paired mode are used for single-end reads and paired-end reads respectively.
 
-Build mode generates an index for source reference sequence of target single-end reads.
 
 ### **Single-End**
 
 ### Build reference index
 
-Before conducting single-end adapter trimming, **one has to prebuild index** once for a specific reference </br>
-genome which is the source of target reads.
+Before conducting single-end adapter trimming, **one has to prebuild the index** once for a specific reference 
+which is the source of the target reads.
 
 ```sh
 # ./EARRINGS build -r [ref_path] -p [index_prefix]
-> ./EARRINGS build -r ref/hg38_chr1.fa -p earrings_hg38_chr1
+> ./EARRINGS build -r hg38_chr1.fa -p earrings_hg38_chr1
+> ./EARRINGS build -r 16S_rRNA_panel.fa -p 16S_rRNA_penel
 ```
 
 Build parameters
@@ -69,9 +70,8 @@ Single-End mode parameters
 - Required
   - -p [ --index_prefix ] The index prefix for pre-built index table.
   - -s [ --skewer ] Skewer flag, options after this would be fed to Skewer, such as input</br> 
-  					file name and the number of thread used to run the program. These two parameters</br> 
-  					will also be used by EARRINGS. Moreover, EARRINGS will pass the auto-detected</br> 
-  					adapter sequence to Skewer.
+  					file name and the **number of thread** used to run the program. These two parameters</br> 
+  					will also be used by EARRINGS. 
 - Optional
   - Utils
     - -h [ --help ] Display help message and exit.
