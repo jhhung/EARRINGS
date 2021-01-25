@@ -33,7 +33,7 @@ int main(int argc, const char* argv[])
         pter detection. 
     > EARRINGS build -r ref_path -p index_prefix
     (2) Adapter trimming
-    > EARRINGS single -p index_prefix --skewer input1.fq
+    > EARRINGS single -p index_prefix -1 input1.fq -t thread_num
     > EARRINGS paired -i input1.fq -I input2.fq -t thread_num 
     See EARRINGS single/paired --help for more information about the parameters.
     *********************************************************************************
@@ -50,23 +50,17 @@ int main(int argc, const char* argv[])
         skewer::cParameter para;
         char errMsg[256];
         init_single(argc, argv);
-        size_t earrings_argc(0);
-        for (size_t i(2); i < argc; ++i)
-        {
-            if(std::string(argv[i]) == "--skewer")
-            {
-                earrings_argc = i + 1;
-                break;
-            }
-        }
         
-        std::vector<const char*> skewer_argv(argc - earrings_argc + 3);
+        // input, output, min_len, thread, adapter, quiet flag
+        std::vector<const char*> skewer_argv(10);
         skewer_argv[0] = "skewer";  // skewer is required to install beforehead.
-
-        for (size_t i(1); i < skewer_argv.size() - 2; ++i)
-        {
-            skewer_argv[i] = argv[i + earrings_argc - 1];
-        }
+		skewer_argv[1] = ifs_name[0].c_str(); // input
+		skewer_argv[2] = "-o";  // output
+		skewer_argv[3] = ofs_name[0].c_str();
+		skewer_argv[4] = "-l";  // min_len
+		skewer_argv[5] = std::to_string(min_length).c_str();
+		skewer_argv[6] = "-t";  // thread
+		skewer_argv[7] = std::to_string(thread_num).c_str();
         int32_t iRet = para.GetOpt(skewer_argv.size() - 2, skewer_argv.data(), errMsg);
         // copy from skewer's main program.
         if (iRet < 0)
@@ -90,7 +84,6 @@ int main(int argc, const char* argv[])
             return 1;
         }
 
-        ifs_name[0] = std::string{para.input[0]};
         std::cout << "input: " << ifs_name[0] << "\n";
         
         if (!bam_fname.empty())
@@ -100,16 +93,16 @@ int main(int argc, const char* argv[])
                                                     bam_fname
                                                   , ifs_name[0]);
             std::cerr << "Finish processing BAM file!\n";
-            // check if the number of unaligned BAM records is gt than DETECT_N_READS
+            // check if the number of BAM records is gt than DETECT_N_READS
             if (num_records < DETECT_N_READS)
             {
-                std::cerr << "Warning: Too few unaligned BAM records: " << num_records << "\n";
+                std::cerr << "Warning: Too few BAM records: " << num_records << "\n";
             }
         }
 
 		auto adapter_info = seat_adapter_auto_detect(ifs_name[0], para.nThreads);  // auto-detect adapter 
-        skewer_argv[skewer_argv.size() - 2] = "-x";
-        skewer_argv[skewer_argv.size() - 1] = std::get<0>(adapter_info).c_str();
+        skewer_argv[8] = "-x";
+        skewer_argv[9] = std::get<0>(adapter_info).c_str();
         if (std::get<1>(adapter_info))
         {
             skewer_argv.emplace_back("-C");
@@ -127,10 +120,10 @@ int main(int argc, const char* argv[])
                                                     bam_fname
                                                   , ifs_name[0]
                                                   , ifs_name[1]);
-            // check if the number of unaligned BAM records is gt than DETECT_N_READS
+            // check if the number of BAM records is gt than DETECT_N_READS
             if (num_records < DETECT_N_READS)
             {
-                std::cerr << "Warning: Too few unaligned BAM records: " << num_records << "\n";
+                std::cerr << "Warning: Too few BAM records: " << num_records << "\n";
             }
         }
         PE_trim();
@@ -226,7 +219,7 @@ void init_single(int argc, const char* argv[])
     prebuild the index first. For downstream adapter trimming, it is conducted using 
     Skewer with adapter parameters passed by EARRINGS automatically.
     
-    > EARRINGS single -p earrings_idx --skewer test_file/test_paired1.fq
+    > EARRINGS single -p earrings_idx -1 test_file/test_paired1.fq
     *********************************************************************************
     )";
     
@@ -238,13 +231,28 @@ void init_single(int argc, const char* argv[])
          boost::program_options::
             value<std::string>()->required(),
             "The index prefix for prebuilt index table. (required)")
-        ("skewer,s", "Skewer flag, options after this would be fed to Skewer, such as input file name and the number of thread used to run the program. These two parameters will also be used by EARRINGS. Moreover, EARRINGS will pass the auto-detected adapter sequence to Skewer.")
+        ("input1,1", 
+         boost::program_options::
+            value<std::string>(&ifs_name[0])->required(), 
+         "The Single-End FastQ input file 1 (.fq) (required)") 
         ("help,h", "Display help message and exit.")
         ("seed_len,d",
          boost::program_options::
             value<size_t>()->default_value(50),
-            "The first seed_len bases at 5' portion is viewed as seed when conducting alignment. EARRINGS allows at most one mismatch in the seed portion if enable_mismatch is set to true. Reads will be aborted if more than one mismatch is found in the seed portion. If one mismatch is found outside the seed region, the remainder is reported as a tail. It is recommended to set the seed_len to 18 for very short reads like miRNA, otherwise, it is recommended to set it to 50. (default: 50)")
-        ("max_align,m",
+            "The first seed_len bases at 5' portion is viewed as seed when conducting alignment. EARRINGS allows at most one mismatch in the seed portion if enable_mismatch is set to true. Reads will be aborted if more than one mismatch is found in the seed portion. If one mismatch is found outside the seed region, the remainder is reported as a tail. It is recommended to set the seed_len to 18 for very short reads like miRNA, otherwise, it is recommended to set it to 50. (default: 50)") 
+        ("output,o",
+         boost::program_options::
+            value<std::string>(&ofs_name[0])->default_value("EARRINGS_se"),
+        "The Single-End FastQ output file prefix (default: EARRINGS_se)")
+        ("min_length,m",
+         boost::program_options::
+            value<size_t>()->default_value(0),
+            "Abort the read if the length of the read is less than m. (default: 0)")
+        ("thread,t", 
+         boost::program_options::
+            value<size_t>()->default_value(1), 
+         "The number of threads used to run the program. (default: 1)")
+        ("max_align,M",
          boost::program_options::
             value<size_t>()->default_value(0),
             "Maximum number of candidates used in seed finding stage. (default: 0, not limited)")
@@ -297,6 +305,11 @@ void init_single(int argc, const char* argv[])
             }
         }
         
+        thread_num = vm["thread"].as<size_t>();
+        if (thread_num > 32) thread_num = 32;
+
+        min_length = vm["min_length"].as<size_t>();
+        
         if (vm.count("seed_len"))
         {
             seed_len = vm["seed_len"].as<size_t>();
@@ -337,12 +350,6 @@ void init_single(int argc, const char* argv[])
             estimate_umi_len = true;
         }
 
-        if (!vm.count("skewer"))
-        {
-            throw std::runtime_error("--skewer flag is mandatory, "
-                "which follows by the arguments that are passed into skewer program.");
-        }
-
         std::cout << "Index prefix: " << index_prefix << std::endl;
         std::cout << "Seed length: " << seed_len << ", Maximum alignment: " << min_multi << ", sensitive mode: " << is_sensitive << std::endl;
         std::cout << "Enable mismatch: " << enable_mismatch << ", Prune factor: " << prune_factor << ", is fastq: " << is_fastq << std::endl;
@@ -375,7 +382,7 @@ void init_paired(int argc, const char* argv[])
 	EARRINGS takes paired-end FastQ/FastA format input files (dual files), and outputs 
 	adapter removed FastQ/FastA format output files (dual files).
 
-	> EARRINGS paired -i test_file/test_paired1.fq -I test_file/test_paired2.fq -t thread
+	> EARRINGS paired -1 test_file/test_paired1.fq -2 test_file/test_paired2.fq -t thread
 	*********************************************************************************
 )"; 
     
@@ -384,23 +391,19 @@ void init_paired(int argc, const char* argv[])
     try 
     {
         opts.add_options ()
-        ("input1,i", 
+        ("input1,1", 
          boost::program_options::
             value<std::string>(&ifs_name[0])->required(), 
          "The Paired-End FastQ input file 1 (.fq) (required)")
-        ("input2,I", 
+        ("input2,2", 
          boost::program_options::
             value<std::string>(&ifs_name[1])->required(), 
          "The Paired-End FastQ input file 2 (.fq) (required)")
         ("help,h", "Display help message and exit.")
-        ("output1,o",
+        ("output,o",
          boost::program_options::
-            value<std::string>(&ofs_name[0])->default_value("EARRINGS_1.fq"),
-        "The Paired-End FastQ output file 1 (.fq) (default: EARRINGS_2.fq)")
-        ("output2,O",
-         boost::program_options::
-            value<std::string>(&ofs_name[1])->default_value("EARRINGS_2.fq"),
-        "The Paired-End FastQ output file 2 (.fq) (default: EARRINGS_2.fq)")
+            value<std::string>(&ofs_name[0])->default_value("EARRINGS_pe"),
+        "The Paired-End FastQ output file prefix (default: EARRINGS_pe)")
         ("adapter1,a",
         boost::program_options::
             value<std::string>(&DEFAULT_ADAPTER1)->default_value(DEFAULT_ADAPTER1),
@@ -468,10 +471,18 @@ void init_paired(int argc, const char* argv[])
                 prune_factor = 0.03;
             }
         }
-
+		
+		ofs_name[1] = ofs_name[0];
         if (vm.count("fasta") || !bam_fname.empty())
         {
+        	ofs_name[0] += "_1.fasta";
+        	ofs_name[1] += "_2.fasta";
             is_fastq = false;
+        }
+        else
+        {
+        	ofs_name[0] += "_1.fastq";
+        	ofs_name[1] += "_2.fastq";
         }
 
         if (vm.count("sensitive"))

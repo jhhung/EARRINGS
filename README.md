@@ -11,7 +11,7 @@ Like PEAT, EARRING adapts [skewer](https://github.com/relipmoc/skewer)for single
 ## Requirement
 
 - [g++-8](https://gcc.gnu.org/gcc-8/) and cmake [3.10.0](https://cmake.org/download/) or higher to build EARRINGS
-- python3.7 or higher for the benchmarking
+- python3.7 or higher as well as numpy and pandas packages for the benchmarking
 
 ## Build
 
@@ -61,25 +61,25 @@ Build parameters
 EARRINGS first detects adapter then feeds the detected adapter to skewer.
 
 ```sh
-# ./EARRINGS single -p [index_prefix] --skewer [input_file] [skewer_parameters]
-> ./EARRINGS single -p path_to_index --skewer ../test_data/has_adapter_1.fq
+# ./EARRINGS single -p [index_prefix] -1 [input_file]
+> ./EARRINGS single -p path_to_index -1 ../test_data/has_adapter_1.fq
 ```
 
 Single-End mode parameters
 
 - Required
   - -p [ --index_prefix ] The index prefix for pre-built index table.
-  - -s [ --skewer ] Skewer flag, options after this would be fed to Skewer, such as input</br> 
-  					file name and the **number of thread** used to run the program. These two parameters</br> 
-  					will also be used by EARRINGS. 
+  - -1 [ --input1 ] The Single-End FastQ input file 1 (.fq).
 - Optional
   - -h [ --help ] Display help message and exit.
+  - -o [ --output ] The Single-End FastQ output file prefix. (default: EARRINGS_se)
+  - -m [ --min_length ] Abort the read if the length of the read is less than m. (default: 0)
   - -d [ --seed_len ] The first seed_len bases at 5' portion is viewed as seed when conducting alignment.</br> 
   		EARRINGS allows at most one mismatch in the seed portion if enable_mismatch is set to true.</br> 
   		Reads will be aborted if more than one mismatch is found in the seed portion. If one mismatch</br> 
   		is found outside the seed region, the remainder is reported as a tail. It is recommended to set</br> 
   		the seed_len to 18 for very short reads like miRNA, otherwise, it is recommended to set it to 50. (default: 50)
-  - -m [ --max_align ] Maximum number of candidates used in seed finding stage. (default: 0, not limited)
+  - -M [ --max_align ] Maximum number of candidates used in seed finding stage. (default: 0, not limited)
   - -e [ --enable_mismatch ] Enable/disable mismatch when conducting seed finding. (default: true)
   - -f [ --prune_factor ] Prune factor used when assembling adapters using the de-brujin graph. </br>
         Kmer frequency lower than the prune factor will be aborted. (default: 0.03)
@@ -99,19 +99,18 @@ Single-End mode parameters
 ### Execute Paired-End trimming
 
 ```sh
-# ./EARRINGS paired -i [input1] -I [input2] -t [thread_num]
-> ./EARRINGS paired -i ../test_data/has_adapter_1.fq -I ../test_data/has_adapter_2.fq
+# ./EARRINGS paired -1 [input1] -2 [input2]
+> ./EARRINGS paired -1 ../test_data/has_adapter_1.fq -2 ../test_data/has_adapter_2.fq
 ```
 
 Paired-end mode parameters
 
 - Required
-  - -i [ --input1 ] The PE FastQ input file 1 (.fq)
-  - -I [ --input2 ] The PE FastQ input file 2 (.fq)
+  - -1 [ --input1 ] The PE FastQ input file 1 (.fq)
+  - -2 [ --input2 ] The PE FastQ input file 2 (.fq)
 - Optional
   - -h [ --help ] Display help message and exit.
-  - -o [ --output1 ] The PE FastQ output file 1 (.fq) (default: EARRINGS_2.fq)
-  - -O [ --output2 ] The PE FastQ output file 2 (.fq) (default: EARRINGS_2.fq)
+  - -o [ --output ] The PE FastQ output file prefix. (default: EARRINGS_pe)
   - -a [ --adapter1 ] Default adapter 1 when auto-detect fails.</br>
         (default: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)
   - -A [ --adapter2 ] Default adapter 2 when auto-detect fails.</br>
