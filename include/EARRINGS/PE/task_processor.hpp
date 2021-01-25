@@ -6,6 +6,9 @@
 #include <EARRINGS/PE/buffer_manager.hpp>
 #include <EARRINGS/PE/rw_count.hpp>
 #include <EARRINGS/PE/trimmer.hpp>
+#include <boost/iostreams/device/file.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
 #include <tuple>
 #include <string_view>
 #include <algorithm>
@@ -15,18 +18,22 @@ using namespace EARRINGS;
 
 namespace EARRINGS
 {
-template<template<class> class FORMAT, class BITSTR>
+template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
 class TaskProcessor
 {
 private:
+    template <typename T>
+    using remove_cvr_t = std::remove_cv_t<std::remove_reference_t<T>>;
+    using BIO_filtering_istream = boost::iostreams::filtering_istream;
+    using BIO_filtering_ostream = boost::iostreams::filtering_ostream;
     using FORMAT2BIT = FORMAT<BITSTR>;
     fs::path _tmp_path;
     BufferManager _buf_manager;
     Trimmer<PAIRED, FORMAT2BIT> _tr;
     RWCount _rw_count;
     std::vector<fs::path> _tmp_dir;
-    std::vector<std::ifstream> _ifs;
-    std::vector<std::ofstream> _ofs;
+    std::vector<IFS> _ifs;
+    std::vector<OFS> _ofs;
     std::vector<std::string> _default_adapters;
     std::vector<BITSTR> _adapters;
     size_t _detect_n_reads;
@@ -62,36 +69,65 @@ public:
     void process();
 };
 
-template<template<class> class FORMAT, class BITSTR>
-TaskProcessor<FORMAT, BITSTR>::TaskProcessor(size_t thread_num
-                                           , size_t chunk_size
-                                           , size_t record_line
-                                           , std::vector<std::string>& ifs_name
-                                           , std::vector<std::string>& ofs_name
-                                           , std::tuple<float, float, float>& trimmer_param
-                                           , bool loc_tail
-                                           , std::vector<std::string>& default_adapter
-                                           , size_t detect_n_reads
-                                           , bool is_sensitive)
-{
-    _record_line = record_line;
-    _chunk_size = chunk_size;
-    _thread_num = thread_num;
-    _detect_n_reads = detect_n_reads;
-    _default_adapters = default_adapter;
-    _buf_manager.set_chunk_size(chunk_size, _thread_num);
+template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+TaskProcessor<FORMAT, BITSTR, IFS, OFS>::TaskProcessor(size_t thread_num
+                                                    , size_t chunk_size
+                                                    , size_t record_line
+                                                    , std::vector<std::string>& ifs_name
+                                                    , std::vector<std::string>& ofs_name
+                                                    , std::tuple<float, float, float>& trimmer_param
+                                                    , bool loc_tail
+                                                    , std::vector<std::string>& default_adapter
+                                                    , size_t detect_n_reads
+                                                    , bool is_sensitive)
     // input/output files
-    _ifs.resize(2);
-    _ofs.resize(2);
+    : _ifs(2)
+    , _ofs(2)
+    , _record_line(record_line)
+    , _chunk_size(chunk_size)
+    , _thread_num(thread_num)
+    , _detect_n_reads(detect_n_reads)
+    , _default_adapters(default_adapter)
+{
+    _buf_manager.set_chunk_size(chunk_size, _thread_num);
+        
     for (size_t i = 0; i < 2; ++i)
     {
-        _ifs[i].open(ifs_name[i]);
-        _ofs[i].open(ofs_name[i], std::ios_base::binary);
-        if (!_ofs[i].is_open() || !_ofs[i].good())
-            throw std::runtime_error("Can't open output file normally\n");
+        if constexpr (std::is_same_v<remove_cvr_t<IFS>, BIO_filtering_istream>)
+        {
+            _ifs[i].push(boost::iostreams::gzip_decompressor());
+            auto&& src(boost::iostreams::file_source(ifs_name[i], std::ios_base::binary));
+            if (!src.is_open())
+                throw std::runtime_error("Can't open input gz file normally\n");
+            
+            _ifs[i].push(src);
+            if (!_ifs[i].good())
+                throw std::runtime_error("Can't open input gz stream normally\n");
+        }
+        else
+        {
+            _ifs[i].open(ifs_name[i]);
+            if (!(_ifs[i].is_open() && _ifs[i].good()))
+                throw std::runtime_error("Can't open input file normally\n");
+        }
 
-        if (!_ifs[i].is_open() || !_ifs[i].good())
-            throw std::runtime_error("Can't open input file normally\n");
+        if constexpr (std::is_same_v<remove_cvr_t<OFS>, BIO_filtering_ostream>)
+        {
+            _ofs[i].push(boost::iostreams::gzip_compressor());
+            auto&& sink(boost::iostreams::file_sink(ofs_name[i], std::ios_base::binary));
+            if (!sink.is_open())
+                throw std::runtime_error("Can't open output gz file normally\n");
+
+            _ofs[i].push(sink);
+            if (!_ifs[i].good())
+                throw std::runtime_error("Can't open input gz stream normally\n");
+        }
+        else
+        {
+            _ofs[i].open(ofs_name[i]);
+            if (!(_ofs[i].is_open() && _ofs[i].good()))
+                throw std::runtime_error("Can't open output file normally\n");
+        }
     }
 
     // create tmp dir
@@ -116,8 +152,8 @@ TaskProcessor<FORMAT, BITSTR>::TaskProcessor(size_t thread_num
     _is_sensitive = is_sensitive;
 }
 
-template<template<class> class FORMAT, class BITSTR>
-void TaskProcessor<FORMAT, BITSTR>::process()
+template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::process()
 {
     detect_adapters();
     bool eof = false;
@@ -142,10 +178,10 @@ void TaskProcessor<FORMAT, BITSTR>::process()
 }
 
 
-template<template<class> class FORMAT, class BITSTR>
-void TaskProcessor<FORMAT, BITSTR>::preprocess(FORMAT2BIT& fm1
-                                             , FORMAT2BIT& fm2
-                                             , size_t pos)
+template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::preprocess(FORMAT2BIT& fm1
+                                                    , FORMAT2BIT& fm2
+                                                    , size_t pos)
 {
     // adapter locates at 5'
     if (!_loc_tail)
@@ -155,8 +191,8 @@ void TaskProcessor<FORMAT, BITSTR>::preprocess(FORMAT2BIT& fm1
     }
 }
 
-template<template<class> class FORMAT, class BITSTR>
-void TaskProcessor<FORMAT, BITSTR>::detect_adapters()
+template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::detect_adapters()
 {
     // detect adapter using the first N reads
     size_t total_lines = record_line * _detect_n_reads;
@@ -168,16 +204,35 @@ void TaskProcessor<FORMAT, BITSTR>::detect_adapters()
         std::getline(_ifs[0], reads[0][i]);
         std::getline(_ifs[1], reads[1][i]);
     }
+    // cutoff lines
+    i = (i / record_line) * record_line;
 
+    // reset ifstreams
     for (size_t j(0); j < 2; ++j)
     {
-        _ifs[j].clear(); // clear eof flag
-        _ifs[j].seekg(0, std::ios::beg); 
+        if constexpr (std::is_same_v<remove_cvr_t<IFS>, BIO_filtering_istream>)
+        {
+            _ifs[j].pop();
+            auto&& src(boost::iostreams::file_source(ifs_name[j], std::ios_base::binary));
+            if (!src.is_open())
+                throw std::runtime_error("Can't reopen input gz file normally\n");
+            
+            _ifs[j].push(src);
+            if (!_ifs[j].good())
+                throw std::runtime_error("Can't reopen input gz stream normally\n");
+        }
+        else
+        {
+            _ifs[j].close();
+            _ifs[j].open(ifs_name[j]);
+            if (!(_ifs[j].is_open() && _ifs[j].good()))
+                throw std::runtime_error("Can't reopen input file normally\n");
+        }
     }
 
     FORMAT2BIT fm1, fm2;
     // possible adapter fragments
-    std::vector<std::vector<std::string>> adapter_frags(2); 
+    std::vector<std::vector<std::string>> adapter_frags(2);
     adapter_frags[0].reserve(i);
     adapter_frags[1].reserve(i);
 
@@ -242,9 +297,9 @@ void TaskProcessor<FORMAT, BITSTR>::detect_adapters()
 
 }
 
-template<template<class> class FORMAT, class BITSTR>
+template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
 template<class POOL>
-bool TaskProcessor<FORMAT, BITSTR>::read_task(POOL& pool)
+bool TaskProcessor<FORMAT, BITSTR, IFS, OFS>::read_task(POOL& pool)
 {
 	bool eof = false;
 	Task task;
@@ -272,9 +327,9 @@ bool TaskProcessor<FORMAT, BITSTR>::read_task(POOL& pool)
 	return eof;
 }
 
-template<template<class> class FORMAT, class BITSTR>
+template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
 template<class POOL>
-void TaskProcessor<FORMAT, BITSTR>::trim_task(Task task, POOL& pool)
+void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::trim_task(Task task, POOL& pool)
 {
 	// trimming
 	trim_reads(task);
@@ -293,11 +348,11 @@ void TaskProcessor<FORMAT, BITSTR>::trim_task(Task task, POOL& pool)
 	else;
 }
 
-template<template<class> class FORMAT, class BITSTR>
-void TaskProcessor<FORMAT, BITSTR>::write_task(Task& task)
+template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::write_task(Task& task)
 {
-	std::ofstream f1(_tmp_dir[0] / fs::path(std::to_string(task.f_idx)));
-	std::ofstream f2(_tmp_dir[1] / fs::path(std::to_string(task.f_idx)));
+	std::ofstream f1(_tmp_dir[0] / fs::path(std::to_string(task.f_idx)), std::ios_base::binary);
+	std::ofstream f2(_tmp_dir[1] / fs::path(std::to_string(task.f_idx)), std::ios_base::binary);
 
 	if(!f1.good())
 	    throw std::runtime_error("Can't read from tmp file1\n");
@@ -339,8 +394,8 @@ void TaskProcessor<FORMAT, BITSTR>::write_task(Task& task)
     f2.close();
 }
 
-template<template<class> class FORMAT, class BITSTR>
-void TaskProcessor<FORMAT, BITSTR>::write_all_task()
+template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::write_all_task()
 {	
 	// get all files under temporary directory 
 	// that stores all the trimmed reads
@@ -363,8 +418,8 @@ void TaskProcessor<FORMAT, BITSTR>::write_all_task()
     }
 }
 
-template<template<class> class FORMAT, class BITSTR>
-void TaskProcessor<FORMAT, BITSTR>::trim_reads(Task& task)
+template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::trim_reads(Task& task)
 {
 	size_t start_pos(task.buf_idx * _chunk_size);
 	size_t end_pos(start_pos + _chunk_size);
@@ -422,8 +477,8 @@ void TaskProcessor<FORMAT, BITSTR>::trim_reads(Task& task)
 	}
 }
 
-template<template<class> class FORMAT, class BITSTR>
-bool TaskProcessor<FORMAT, BITSTR>::read_reads(Task& task)
+template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+bool TaskProcessor<FORMAT, BITSTR, IFS, OFS>::read_reads(Task& task)
 {
     // if (!_ifs[0].good())
 	//     throw std::runtime_error("Can't read from input file1\n");
@@ -449,10 +504,11 @@ bool TaskProcessor<FORMAT, BITSTR>::read_reads(Task& task)
 
 	if (eof1)
 	{
-        // end buf index
-		_rw_count.rend_idx = i - start_pos;
+        // end buf index, and cutoff lines
+		_rw_count.rend_idx = ((i / record_line) * record_line) - start_pos;
 	}
 	
 	return eof1;
 }
+
 }

@@ -13,6 +13,7 @@
 // for both SE and PE
 bool is_fastq = true;
 bool is_sensitive = false;
+bool is_gz_input(false), is_gz_output(false);
 size_t record_line = 4;
 constexpr size_t DETECT_N_READS = 10000;
 std::string bam_fname;
