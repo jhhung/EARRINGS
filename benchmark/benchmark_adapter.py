@@ -53,17 +53,19 @@ if __name__ == "__main__":
                 ANS2 = "{}_ans_2.fq".format(simu_fpath)
 
                 run_all = []
+            
                 run_all.append("atropos detect -pe1 {} -pe2 {} | tee -a {}".format(GEN1, GEN2, output_files[0]))
                 run_all.append("atropos detect -se {} | tee -a {}".format(GEN1, output_files[1]))
                 # We cout the the detected adapters in fastp
                 run_all.append("fastp -i {} -I {} --detect_adapter_for_pe | tee -a {}".format(GEN1, GEN2, output_files[2]))
                 run_all.append("fastp -i {} | tee -a {}".format(GEN1, output_files[3]))
+                
                 # Sensitive mode: is able to successfully detect adapter even when the adapter contamination ratio is low.
-                run_all.append("{} single -p {} --sensitive --skewer {} --quiet | tee -a {}".format(EARRINGS_EXE, IDX_PREFIX, GEN1, output_files[4]))
-                run_all.append("{} paired -i {} -I {} --sensitive -o ./earrings-pe1_sen.fastq -O ./earrings-pe2_sen.fastq | tee -a {}".format(EARRINGS_EXE, GEN1, GEN2, output_files[5]))
+                run_all.append("{} single -p {} --sensitive -1 {} | tee -a {}".format(EARRINGS_EXE, IDX_PREFIX, GEN1, output_files[4]))
+                run_all.append("{} paired -1 {} -2 {} --sensitive -o ./earrings_pe_sen | tee -a {}".format(EARRINGS_EXE, GEN1, GEN2, output_files[5]))
                 # Non-sensitive mode
-                run_all.append("{} single -p {} --skewer {} --quiet | tee -a {}".format(EARRINGS_EXE, IDX_PREFIX, GEN1, output_files[6]))
-                run_all.append("{} paired -i {} -I {} -o ./earrings-pe1.fastq -O ./earrings-pe2.fastq | tee -a {}".format(EARRINGS_EXE, GEN1, GEN2, output_files[7]))
+                run_all.append("{} single -p {} -1 {} | tee -a {}".format(EARRINGS_EXE, IDX_PREFIX, GEN1, output_files[6]))
+                run_all.append("{} paired -1 {} -2 {} -o ./earrings_pe | tee -a {}".format(EARRINGS_EXE, GEN1, GEN2, output_files[7]))
                 
                 print("dev: {}, seed: {}".format(str(sd), str(seed)), flush=True)
                 command = commands[i] + " -r {} -std {} -s {} -O {} -o {} {}".format(HG38_CHR1_REF, str(sd), simu_fname, OUTPUT_DATA_DIR, simu_log, str(seed))

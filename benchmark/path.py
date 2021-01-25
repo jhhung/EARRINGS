@@ -16,9 +16,9 @@ C_ELEGANS_REF = os.path.join(C_ELEGANS_DIR, "c_elegans.fa")
 D_SIMULANS_REF = os.path.join(D_SIMULANS_DIR, "d_simu.fa")
 
 # earrings indexing path
-HG38_CHR1_EARRINGS_IDX = os.path.join(HG38_CHR1_DIR, "earrings_hg38_chr1.")
-HG38_EARRINGS_IDX = os.path.join(HG38_DIR, "earrings_hg38.")
-C_ELEGAN_EARRINGS_IDX = os.path.join(C_ELEGANS_DIR, "earrings_c_elegans.")
+HG38_CHR1_EARRINGS_IDX = os.path.join(HG38_CHR1_DIR, "earrings_hg38_chr1")
+HG38_EARRINGS_IDX = os.path.join(HG38_DIR, "earrings_hg38")
+C_ELEGAN_EARRINGS_IDX = os.path.join(C_ELEGANS_DIR, "earrings_c_elegans")
 
 # dir where aligner locates
 BOWTIE2_DIR = os.path.join(REAL_DATA_DIR, "..", "bowtie2")

@@ -83,9 +83,6 @@ public:
         size_t counter = 0;
         while(BAM::get_obj(ifs, bam))
         {
-            // check if this record is unaligned BAM
-            // 0x4: unaligned reads
-            // 0x10: read reverse strand
             bool is_rev = (bam.get_member<sam::MEMBER_INDEX::FLAG>() & 16) == 16;
             
             write_to_fa(bam, ofs, is_rev);
@@ -122,8 +119,6 @@ public:
 
         while(BAM::get_obj(ifs, bam1))
         {
-            // check if this record is unaligned BAM
-            // 4 -> reads unaligned
             BAM::get_obj(ifs, bam2);
             bool is_rev1 = (bam1.get_member<sam::MEMBER_INDEX::FLAG>() & 16) == 16;
             bool is_rev2 = (bam2.get_member<sam::MEMBER_INDEX::FLAG>() & 16) == 16;
