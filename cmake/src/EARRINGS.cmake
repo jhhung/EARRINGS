@@ -13,6 +13,7 @@ target_link_libraries(${__screw_target} PUBLIC
     Boost::system
     Boost::program_options
     Boost::serialization
+    Boost::iostreams
     pthread
     stdc++fs
     skewer

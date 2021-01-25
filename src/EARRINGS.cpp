@@ -121,6 +121,11 @@ int main(int argc, const char* argv[])
     {
         init_paired(argc, argv);
 
+        if (ifs_name[0].find(".gz") == ifs_name[0].size() - 3)
+            is_gz_input = true;
+        if (ofs_name[0].find(".gz") == ofs_name[0].size() - 3)
+            is_gz_output = true;
+
         if (!bam_fname.empty())
         {
             auto num_records = Process_uBAMs::extract_reads_from_uBAMs(

@@ -34,12 +34,11 @@ Build mode generates an index for the source reference sequence (e.g., the entir
 
 Single mode and paired mode are used for single-end reads and paired-end reads respectively.
 
-
 ### **Single-End**
 
 ### Build reference index
 
-Before conducting single-end adapter trimming, **one has to prebuild the index** once for a specific reference 
+Before conducting single-end adapter trimming, **one has to prebuild the index** once for a specific reference
 which is the source of the target reads.
 
 ```sh
@@ -69,19 +68,19 @@ Single-End mode parameters
 
 - Required
   - -p [ --index_prefix ] The index prefix for pre-built index table.
-  - -s [ --skewer ] Skewer flag, options after this would be fed to Skewer, such as input</br> 
-  					file name and the **number of thread** used to run the program. These two parameters</br> 
-  					will also be used by EARRINGS. 
+  - -s [ --skewer ] Skewer flag, options after this would be fed to Skewer, such as input </br>
+            file name and the **number of thread** used to run the program. These two parameters </br>
+            will also be used by EARRINGS.
 - Optional
   - Utils
     - -h [ --help ] Display help message and exit.
   - Input / Output
     - -b [ --bam_input ] Transform reads in a BAM file into a FastA file, then trim off adapters from </br>
-  		    the FastA file.</br>
+            the FastA file.</br>
             The file name of the input and output Fasta file could be set by parameters of Skewer.</br>
     - -F [ --fasta ] Specify input file type as FastA. (Default input file format: FastQ)
   - Extract seeds / Alignment
-      - -d [ --seed_len ] The first <seed_len> bases at 5' portion is viewed as seed when conducting </br>
+    - -d [ --seed_len ] The first <seed_len> bases at 5' portion is viewed as seed when conducting </br>
             alignment, and errors are not allowed in seed or this read would be aborted.</br>
             If an error is found out of the seed, the remainder sequence is reported as a tail, this </br>
             function is useful to detect tails in miRNA.</br>
@@ -125,8 +124,8 @@ Paired-end mode parameters
   - Input / Output
     - -F [ --fasta ] Specify input file type as FastA. (default input file format: FastQ)
     - -b [ --bam_input ] Detect and trim off adapters from a BAM file.
-    - -b [ --bam_input ] Transform reads in a BAM file into two FastA files. Then trim off adapters</br> 
-  		    from the FastA files. The file names of the untrimmed Fasta files are determined by input1 </br>
+    - -b [ --bam_input ] Transform reads in a BAM file into two FastA files. Then trim off adapters</br>
+            from the FastA files. The file names of the untrimmed Fasta files are determined by input1 </br>
             and input2, while the file names of the trimmed Fasta files are determined by output1 and </br>
             output2.
     - -o [ --output1 ] The PE FastQ output file 1 (.fq) (default: EARRINGS_2.fq)
@@ -246,14 +245,24 @@ Run adapter benchmarking:
 
 ## Reference
 
-1. Li, Y.-L., Weng, J.-C., Hsiao, C.-C., Chou, M.-T., Tseng, C.-W., & Hung, J.-H. (2015). PEAT: an intelligent and efficient paired-end sequencing adapter trimming algorithm. BMC Bioinformatics, 16(Suppl 1), S2. doi:10.1186/1471-2105-16-S1-S2
-2. Jiang, H., Lei, R., Ding, S.W. and Zhu, S. (2014) Skewer: a fast and accurate adapter trimmer for next-generation sequencing paired-end reads. BMC Bioinformatics, 15, 182.
-3. Hu, X., et al. (2012) pIRS: Profile-based Illumina pair-end reads simulator, Bioinformatics, 28, 1533-1535.
-4. Chou, M.-T., Han, B. W., Hsiao, C.-P., Zamore, P. D., Weng, Z., and Hung, J.-H. (2015). Tailor: a computational framework for detecting non-templated tailing of small silencing RNAs. Nucleic Acids Res. 43, e109.
+1. Li, Y.-L., Weng, J.-C., Hsiao, C.-C., Chou, M.-T., Tseng, C.-W., & Hung, J.-H. (2015). PEAT: an intelligent and efficient paired-end sequencing adapter trimming algorithm. BMC Bioinformatics, 16(Suppl 1), S2. doi:10.1186/1471-2105-16-S1-S2</br>
+[[paper](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-16-S1-S2)]
+[[github](https://github.com/jhhung/PEAT)]
+2. Jiang, H., Lei, R., Ding, S.W. and Zhu, S. (2014) Skewer: a fast and accurate adapter trimmer for next-generation sequencing paired-end reads. BMC Bioinformatics, 15, 182.</br>
+[[paper](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-15-182)]
+[[github](https://github.com/relipmoc/skewer)]
+3. Hu, X., et al. (2012) pIRS: Profile-based Illumina pair-end reads simulator, Bioinformatics, 28, 1533-1535.</br>
+[[paper](https://academic.oup.com/bioinformatics/article/28/11/1533/267409)]
+[[github](https://github.com/galaxy001/pirs)]
+4. Chou, M.-T., Han, B. W., Hsiao, C.-P., Zamore, P. D., Weng, Z., and Hung, J.-H. (2015). Tailor: a computational framework for detecting non-templated tailing of small silencing RNAs. Nucleic Acids Res. 43, e109.</br>
+[[paper](https://academic.oup.com/nar/article/43/17/e109/2414301)]
+[[github](https://github.com/jhhung/Tailor)]
 
 ## Citation
 
-Wang et al. EARRINGS: An Efficient and Accurate Adapter Trimmer Entails No a Priori Adapter Sequences. Bioinformatics. Accepted.
+Wang et al. EARRINGS: An Efficient and Accurate Adapter Trimmer Entails No a Priori Adapter Sequences. Bioinformatics. Accepted.</br>
+[[paper](https://academic.oup.com/bioinformatics/advance-article-abstract/doi/10.1093/bioinformatics/btab025/6103563)]
+[[github](https://github.com/jhhung/EARRINGS)]
 
 ## Contact
 

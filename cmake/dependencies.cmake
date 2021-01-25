@@ -12,6 +12,7 @@ hunter_add_package(Boost COMPONENTS
      graph
      program_options
      serialization
+     iostreams
      # more boost module goes here
 )
 find_package(Boost CONFIG COMPONENTS 
@@ -21,6 +22,7 @@ find_package(Boost CONFIG COMPONENTS
      graph
      program_options
      serialization
+     iostreams
      # more boost module goes here
      REQUIRED
 )
