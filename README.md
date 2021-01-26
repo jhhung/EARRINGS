@@ -1,7 +1,6 @@
 # EARRINGS
 
-EARRINGS is an efficient and accurate adapter trimmer that entails no a priori adapter sequences for both single- </br>
-and paired-end NGS reads.
+EARRINGS is an efficient and accurate adapter trimmer that entails no a priori adapter sequences for both single- and paired-end NGS reads.
 
 ## Information
 
