@@ -30,15 +30,13 @@ Like PEAT, EARRING adapts [skewer](https://github.com/relipmoc/skewer) for singl
 
 There are 3 modes to execute EARRINGS: **build**, **single**, and **paired**.
 
-Build mode generates an index for the source reference sequence (e.g., the entire genome, a chromosome, a </br>
-collection of panel genes, etc.) of the **single-end** reads. The index is **not** used for trimming paired-end reads.
+Build mode generates an index for the source reference sequence (e.g., the entire genome, a chromosome, a collection of panel genes, etc.) of the **single-end** reads. The index is **not** used for trimming paired-end reads.
 
-Single mode and paired mode are used for single-end reads and paired-end reads respectively.
+Single mode and paired mode are used for single-end reads and paired-end reads respectively. Both of these two modes can auto-detect file types. ([.fa](https://en.wikipedia.org/wiki/FASTA_format)/[.fq](https://en.wikipedia.org/wiki/FASTQ_format), and their [.gz](https://en.wikipedia.org/wiki/FASTQ_format#General_compressors) or [.bam](https://en.wikipedia.org/wiki/Binary_Alignment_Map)/[.ubam](http://129.130.90.13/ion-docs/GUID-C202F9D0-386F-412D-97F9-E4DB77F1BB6E.html))
 
 ### **Build**
 
-Before conducting single-end adapter trimming, **one has to prebuild the index** once for a specific reference </br>
-which is the source of the target reads.
+Before conducting single-end adapter trimming, **one has to prebuild the index** once for a specific reference which is the source of the target reads.
 
 ```sh
 # ./EARRINGS build -r [ref_path] -p [index_prefix]
@@ -49,63 +47,62 @@ which is the source of the target reads.
 Build mode parameters
 
 - Required
-  - -r [ --ref_path ] Path to the reference sequence, which is the source of reads.
-  - -p [ --index_prefix ] An user-defined index prefix for index table.
+  - -r [ --ref_path ] arg</br>
+  Path to the reference sequence, which is the source of reads.
+  - -p [ --index_prefix ] arg</br>
+  An user-defined index prefix for index table.
 - Optional
-  - -h [ --help ] Display help message and exit.
+  - -h [ --help ]</br>
+  Display help message and exit.
 
 ### **Single-End**
 
-EARRINGS first detects adapter then feeds the detected adapter to skewer.
+In single-end mode, EARRINGS first detects adapter then feeds the detected adapter to skewer.
 
 ```sh
 # ./EARRINGS single -p [index_prefix] -1 [input_file]
 > ./EARRINGS single -p path_to_index -1 ../test_data/has_adapter_1.fq
+> ./EARRINGS single -p path_to_index -1 ../test_data/has_adapter_1.fq.gz
 ```
 
 Single-End mode parameters
 
 - Required
-  - -p [ --index_prefix ] The index prefix for pre-built index table.
-  - -1 [ --input1 ] The file path of Single-End FastQ reads (.fq).
+  - -p [ --index_prefix ] arg</br>
+  The index prefix for pre-built index table.
+  - -1 [ --input1 ] arg</br>
+  The file path of Single-End reads.
 - Optional
   - Utils
-    - -h [ --help ] Display help message and exit.
-    - -t [ --thread ] The number of threads used to run the program. (default: 1)
+    - -h [ --help ]</br>
+    Display help message and exit.
+    - -t [ --thread ] arg (=1)</br>
+    The number of threads used to run the program.
   - Input / Output
-    - -o [ --output ] The file prefix of Single-End FastQ output. (default: EARRINGS_se)
-    - -b [ --bam_input ] Transform reads in a BAM file into a FastA file, then trim off adapters from </br>
-            the FastA file.</br>
-            The file name of the untrimmed Fasta file is specified by the ***--input1***, while the file name </br>
-            of the trimmed Fasta file is specified by ***--output***.
-    - -F [ --fasta ] Specify input file type as FastA. (Default input file format: FastQ)
+    - -o [ --output ] arg (=trimmed_se)</br>
+    The file prefix of Single-End FastQ output.
   - Extract seeds / Alignment
-    - -d [ --seed_len ] The first ***--seed_len*** bases at 5' portion is viewed as seed when conducting </br>
-            alignment.</br>
-            EARRINGS allows at most one mismatch in the seed portion if ***--enable_mismatch*** is set to true. </br>
-            Reads will be aborted if more than one mismatch are found in the seed portion. If one mismatch </br>
-            is found outside the seed region, the remainder (including mismatch) is reported as a tail.</br>
-            It's recommended to set the it to 18 for very short reads like **miRNA**, otherwise, it is </br>
-            recommended to set it to 50. (default: 50)
-    - -e [ --enable_mismatch ] Enable/disable mismatch toleration when conducting seed finding, </br>
-            it can tolerate 1 error base at most if be set as true. (default: true)
-    - -M [ --max_align ] Maximum number of candidates used in seed finding stage. (default: 0, not </br>
-            limited)
+    - -d [ --seed_len ] arg (=50)</br>
+    The first ***--seed_len*** bases are seen as seed and allows 1 mismatch at most, or do not allow any mismatch if ***--no_mismatch*** is set. The sequence follows first mismatch out of the seed portion will be reported as a tail.</br>
+    It's recommended to set this to 18 for very short reads like **miRNA**, otherwise, it is recommended to set to 50.
+    - -e [ --no_mismatch ]</br>
+    By default, EARRINGS can tolerate 1 error base at most if be set as true, this flag can disable this mismatch toleration mechenism.
+    - -M [ --max_align ] arg (=0)</br>
+    Maximum number of candidates used in seed finding stage, 0 means unlimited.
   - Assemble adapter
-    - -f [ --prune_factor ] Prune factor used when assembling adapters using the de-brujin graph. </br>
-            Kmer frequency lower than this value will be aborted. (default: 0.03)
-    - --sensitive By default, minimum number of kmers must exceed 10 during assembly adapters.</br>
-            However, if user have confidence that the dataset contains adapters, sensitive mode would </br>
-            be more suitable.</br>
-            Under sensitive mode, minimum number of kmers (***--prune_factor***) would not be restricted </br>
-            when assembly adapters.
+    - -f [ --prune_factor ] arg (=0.03)</br>
+    Prune factor used when assembling adapters using the de-brujin graph. Kmer frequency lower than this value will be skipped.
+    - --sensitive</br>
+    By default, minimum number of kmers must exceed 10 during assembly adapters. However, if user have confidence that the dataset contains adapters, sensitive mode would be more suitable.</br>
+    Under sensitive mode, minimum number of kmers (***--prune_factor***) would not be restricted.
   - Trimming
-    - -m [ --min_length ] Abort the read if the length of the read is less than ***--min_length*** after </br>
-            trimming. (default: 0)
+    - -m [ --min_length ] arg (=0)</br>
+    Skip the read if the length of the read is less than ***--min_length*** after trimming.
   - Adapter setting
-    - -a [ --adapter1 ] Alternative adapter if auto-detect mechanism fails.</br>
-            (default: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)
-    - -u [ --UMI ] Estimate the size of UMI sequences, results will be printed to console by default.
+    - -a [ --adapter1 ] arg (=AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)</br>
+    Alternative adapter if auto-detect mechanism fails.
+    - -u [ --UMI ]</br>
+    Estimate the size of UMI sequences, results will be printed to console by default.
 
 ### **Paired-End**
 
@@ -118,35 +115,39 @@ Single-End mode parameters
 Paired-end mode parameters
 
 - Required
-  - -1 [ --input1 ] The PE FastQ input file 1 (.fq)
-  - -2 [ --input2 ] The PE FastQ input file 2 (.fq)
+  - -1 [ --input1 ] arg</br>
+    The Paired-end reads input file 1.
+  - -2 [ --input2 ] arg</br>
+    The Paired-end reads input file 2.
 - Optional
   - Utils
-    - -h [ --help ] Display help message and exit.
-    - -t [ --thread ] The number of threads used to run the program. (default: 1)
+    - -h [ --help ]</br>
+    Display help message and exit.
+    - -t [ --thread ] arg (=1)</br>
+    The number of threads used to run the program.
   - Input / Output
-    - -F [ --fasta ] Specify input file type as FastA. (default input file format: FastQ)
-    - -b [ --bam_input ] Transform reads in a BAM file into two FastA files, then trim off adapters </br>
-            from the FastA files. The file names of the untrimmed Fasta files are determined by ***--input1*** </br>
-            and ***--input2***, while the file names of the trimmed Fasta files are determined by ***--output***.
-    - -o [ --output ] The Paired-End FastQ output file prefix. (default: EARRINGS_pe)
+    - -o [ --output ] arg (=trimmed_pe)</br>
+    The Paired-End FastQ output file prefix.
   - Assemble adapter
-    - -f [ --prune_factor ] Prune factor used when assembling adapters using the de Bruijn graph. kmer</br>
-            frequency lower than the prune factor will be aborted. (default: 0.03)
-    - --sensitive By default, minimum number of kmers must exceed 10 during assembly adapters.</br>
-            However, if user have confidence that the dataset contains adapters, sensitive mode would </br>
-            be more suitable.</br>
-            Under sensitive mode, minimum number of kmers (***--prune_factor***) would not be restricted.
+    - -f [ --prune_factor ] arg (=0.03)</br>
+    Prune factor used when assembling adapters using the de Bruijn graph. Kmer frequency lower than the prune factor will be skipped.
+    - --sensitive</br>
+    By default, minimum number of kmers must exceed 10 during assembly adapters. However, if user have confidence that the dataset contains adapters, sensitive mode would be more suitable.</br>
+    Under sensitive mode, minimum number of kmers (***--prune_factor***) would not be restricted.
   - Trimming
-    - -m [ --min_length ] Abort the read if the length of the read is less than ***--min_length***. (default: 0)
-    - -M [ --rc_thres ] Mismatch threshold applied in reverse complement scan. (default: 0.7)
-    - -s [ --ss_thres ] Mismatch threshold applied in gene portion check. (default: 0.9)
-    - -S [ --as_thres ] Mismatch threshold applied in adapter portion check. (default: 0.8)
+    - -m [ --min_length ] arg (=0)</br>
+    Skip the read if the length of the read is less than this value.
+    - -M [ --rc_thres ] arg (=0.7)</br>
+    Mismatch threshold applied in reverse complement scan.
+    - -s [ --ss_thres ] arg (=0.9)</br>
+    Mismatch threshold applied in gene portion check.
+    - -S [ --as_thres ] arg (=0.8)</br>
+    Mismatch threshold applied in adapter portion check.
   - Adapter setting
-    - -a [ --adapter1 ] Alternative adapter 1 if auto-detect mechanism fails.</br>
-            (default: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)
-    - -A [ --adapter2 ] Alternative adapter 2 if auto-detect mechanism fails.</br>
-            (default: AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTA)
+    - -a [ --adapter1 ] arg (=AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)</br>
+    Alternative adapter 1 if auto-detect mechanism fails.
+    - -A [ --adapter2 ] arg (=AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTA)</br>
+    Alternative adapter 2 if auto-detect mechanism fails.
 
 ## Run Simulation
 
@@ -159,8 +160,7 @@ Please build pIRS first before using it:
 > make
 ```
 
-pIRS simulates Illumina PE reads from a reference genome. In all the benchmarking except real data </br>
-benchmarking, we use GRCh38 chr1 as reference genome to simulate reads.
+pIRS simulates Illumina PE reads from a reference genome. In all the benchmarking except real data benchmarking, we use GRCh38 chr1 as reference genome to simulate reads.
 
 One can run the simulation by:
 
@@ -174,8 +174,7 @@ One can run the simulation by:
 
 ## Run Benchmarking
 
-Before running benchmarking, please install all the prerequisites and set the locations of all the </br>
-executions to $PATH:
+Before running benchmarking, please install all the prerequisites and set the locations of all the executions to $PATH:
 
 1. [AdapterRemoval ver. 2.3.0](https://github.com/MikkelSchubert/adapterremoval/tree/v2.3.0)
 2. [skewer ver. 0.2.2](https://github.com/relipmoc/skewer/tree/0.2.2)
@@ -266,7 +265,7 @@ Wang et al. EARRINGS: An Efficient and Accurate Adapter Trimmer Entails No a Pri
 ```sh
 Jui-Hung Hung <juihunghung@gmail.com>
 
-Ting-Husan Wang <phoebewangintw@gmail.com>
+Ting-Hsuan Wang <phoebewangintw@gmail.com>
 
 Cheng-Ching Huang <ken5112840801@gmail.com>
 ```

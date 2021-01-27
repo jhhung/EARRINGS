@@ -51,6 +51,34 @@ int main(int argc, const char* argv[])
         char errMsg[256];
         init_single(argc, argv);
         
+        std::cout << "input: " << ifs_name[0] << "\n";
+
+        if (ifs_name[0].find(".bam") != std::string::npos || 
+            ifs_name[0].find(".ubam") != std::string::npos)
+        {
+            is_bam = true;
+            if (is_gz_input) {
+                std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
+                return 1;
+            }
+            std::string tmp_name("/tmp/EARRINGS_bam_reads.tmp");
+
+            std::cerr << "Processing BAM file...\n";
+            auto num_records = Process_uBAMs::extract_reads_from_uBAMs(
+                                                    ifs_name[0]
+                                                  , tmp_name);
+            is_fastq = false;
+            ifs_name[0] = tmp_name;
+            std::cerr << "Finish processing BAM file!\n";
+            // check if the number of BAM records is gt than DETECT_N_READS
+            if (num_records < DETECT_N_READS)
+            {
+                std::cerr << "Warning: Too few BAM records: " << num_records << "\n";
+            }
+        }
+
+		auto adapter_info = seat_adapter_auto_detect(ifs_name[0], para.nThreads);  // auto-detect adapter 
+        
         // input, output, min_len, thread, adapter, quiet flag
         std::vector<const char*> skewer_argv(10);
         skewer_argv[0] = "skewer";  // skewer is required to install beforehead.
@@ -83,24 +111,6 @@ int main(int argc, const char* argv[])
             }
             return 1;
         }
-
-        std::cout << "input: " << ifs_name[0] << "\n";
-        
-        if (!bam_fname.empty())
-        {
-            std::cerr << "Processing BAM file...\n";
-            auto num_records = Process_uBAMs::extract_reads_from_uBAMs(
-                                                    bam_fname
-                                                  , ifs_name[0]);
-            std::cerr << "Finish processing BAM file!\n";
-            // check if the number of BAM records is gt than DETECT_N_READS
-            if (num_records < DETECT_N_READS)
-            {
-                std::cerr << "Warning: Too few BAM records: " << num_records << "\n";
-            }
-        }
-
-		auto adapter_info = seat_adapter_auto_detect(ifs_name[0], para.nThreads);  // auto-detect adapter 
         skewer_argv[8] = "-x";
         skewer_argv[9] = std::get<0>(adapter_info).c_str();
         if (std::get<1>(adapter_info))
@@ -114,18 +124,26 @@ int main(int argc, const char* argv[])
     {
         init_paired(argc, argv);
 
-        if (ifs_name[0].find(".gz") == ifs_name[0].size() - 3)
-            is_gz_input = true;
-        if (ofs_name[0].find(".gz") == ofs_name[0].size() - 3)
-            is_gz_output = true;
-
-        if (!bam_fname.empty())
+        if (ifs_name[0].find(".bam") != std::string::npos || 
+            ifs_name[0].find(".ubam") != std::string::npos)
         {
+            is_bam = true;
+            if (is_gz_input) {
+                std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
+                return 1;
+            }
+            std::string tmp_name1("/tmp/EARRINGS_bam_reads1.tmp");
+            std::string tmp_name2("/tmp/EARRINGS_bam_reads2.tmp");
+            // extract reads are fasta by default
             auto num_records = Process_uBAMs::extract_reads_from_uBAMs(
-                                                    bam_fname
-                                                  , ifs_name[0]
-                                                  , ifs_name[1]);
+                                                    ifs_name[0]
+                                                  , tmp_name1
+                                                  , tmp_name2);
+            is_fastq = false;
+            
             // check if the number of BAM records is gt than DETECT_N_READS
+            ifs_name[0] = tmp_name1;
+            ifs_name[1] = tmp_name2;
             if (num_records < DETECT_N_READS)
             {
                 std::cerr << "Warning: Too few BAM records: " << num_records << "\n";
@@ -154,14 +172,16 @@ int main(int argc, const char* argv[])
 void init_build(int argc, const char* argv[])
 {
     std::string usage = R"(
-    *********************************************************************************
-    +-----------+
-    |Build index|
-    +-----------+
-    > EARRINGS build -r ref_path -p index_prefix
-    > eg. EARRINGS build -r hg38.fa -p earrings_idx
-    *********************************************************************************
-    )";
+*****************************************************************************
++-----------+
+|Build index|
++-----------+
+Before conducting single-end adapter trimming , EARRINGS has to prebuild the 
+index once for a specific reference which is the source of the target reads.
+
+> EARRINGS build -r hg38.fa -p earrings_idx
+*****************************************************************************
+)";
     boost::program_options::options_description opts {usage};
     try
     {
@@ -170,11 +190,11 @@ void init_build(int argc, const char* argv[])
         ("ref_path,r",
          boost::program_options::
             value<std::string>()->required(),
-            "Path to the reference genome.")
+            "Path to the reference sequence, which is the source of reads. (required)")
         ("index_prefix,p",
          boost::program_options::
             value<std::string>()->required(),
-            "The index prefix for the built index table.");
+            "An user-defined index prefix for index table. (required)");
 
         boost::program_options::variables_map vm;
         boost::program_options::store (
@@ -215,17 +235,19 @@ void init_build(int argc, const char* argv[])
 void init_single(int argc, const char* argv[])
 {
     std::string usage = R"(
-    *********************************************************************************
-    +----------+
-    |Single End|
-    +----------+
-    Single-end adapter trimming. 
-    EARRINGS detects adapter using alignment-based method. Thus, it is necessary to 
-    prebuild the index first. For downstream adapter trimming, it is conducted using 
-    Skewer with adapter parameters passed by EARRINGS automatically.
-    
-    > EARRINGS single -p earrings_idx -1 test_file/test_paired1.fq
-    *********************************************************************************
+*********************************************************************************
++----------+
+|Single End|
++----------+
+Single-end adapter trimming. 
+EARRINGS detects adapter using alignment-based method. Thus, it is necessary to 
+prebuild the index first. For downstream adapter trimming, it is conducted using 
+Skewer with adapter parameters passed by EARRINGS automatically.
+
+> EARRINGS single -p earrings_idx -1 test_file/test_paired1.fa
+> EARRINGS single -p earrings_idx -1 test_file/test_paired1.fq
+> EARRINGS single -p earrings_idx -1 test_file/test_paired1.fq.gz
+*********************************************************************************
     )";
     
     boost::program_options::options_description opts {usage};
@@ -235,51 +257,60 @@ void init_single(int argc, const char* argv[])
         ("index_prefix,p",
          boost::program_options::
             value<std::string>()->required(),
-            "The index prefix for prebuilt index table. (required)")
+            "The index prefix for pre-built index table. (required)")
         ("input1,1", 
          boost::program_options::
             value<std::string>(&ifs_name[0])->required(), 
-         "The Single-End FastQ input file 1 (.fq) (required)") 
-        ("help,h", "Display help message and exit.")
+            "The file path of Single-End reads. (required)")
+        ("help,h", 
+            "Display help message and exit.")
         ("seed_len,d",
          boost::program_options::
             value<size_t>()->default_value(50),
-            "The first seed_len bases at 5' portion is viewed as seed when conducting alignment. EARRINGS allows at most one mismatch in the seed portion if enable_mismatch is set to true. Reads will be aborted if more than one mismatch is found in the seed portion. If one mismatch is found outside the seed region, the remainder is reported as a tail. It is recommended to set the seed_len to 18 for very short reads like miRNA, otherwise, it is recommended to set it to 50. (default: 50)") 
+            "The first --seed_len bases are seen as seed and allows 1 mismatch at most, "
+            "or do not allow any mismatch if --no_mismatch is set. The sequence follows "
+            "first mismatch out of the seed portion will be reported as a tail.\n"
+            "It's recommended to set this to 18 for very short reads like miRNA, "
+            "otherwise, it is recommended to set to 50.")
         ("output,o",
          boost::program_options::
-            value<std::string>(&ofs_name[0])->default_value("EARRINGS_se"),
-        "The Single-End FastQ output file prefix (default: EARRINGS_se)")
+            value<std::string>(&ofs_name[0])->default_value("trimmed_se"),
+            "The file prefix of Single-End FastQ output.")
         ("min_length,m",
          boost::program_options::
             value<size_t>()->default_value(0),
-            "Abort the read if the length of the read is less than m. (default: 0)")
+            "Skip the read if the length of the read is less than --min_length after trimming.")
         ("thread,t", 
          boost::program_options::
             value<size_t>()->default_value(1), 
-         "The number of threads used to run the program. (default: 1)")
+            "The number of threads used to run the program.")
         ("max_align,M",
          boost::program_options::
             value<size_t>()->default_value(0),
-            "Maximum number of candidates used in seed finding stage. (default: 0, not limited)")
-        ("enable_mismatch,e",
+            "Maximum number of candidates used in seed finding stage, 0 means unlimited.")
+        ("no_mismatch,e",
          boost::program_options::
-            value<bool>()->default_value(true),
-            "Enable/disable mismatch when conducting seed finding. (default: true)")
+            bool_switch(&no_mismatch),
+            "By default, EARRINGS can tolerate 1 error base at most if be set as true, "
+            "this flag can disable this mismatch toleration mechenism.")
         ("prune_factor,f",
          boost::program_options::
             value<float>()->default_value(0.03),
-            "Prune factor used when assembling adapters using the de Bruijn graph. kmer frequency lower than the prune factor will be aborted.(default: 0.03)")
-        ("fasta,F", "Specify input file type as FastA. (Default input file format: FastQ)")
+            "Prune factor used when assembling adapters using the de-brujin graph. Kmer "
+            "frequency lower than this value will be skipped.")
         ("adapter,a",
-        boost::program_options::
+         boost::program_options::
             value<std::string>(&DEFAULT_ADAPTER1)->default_value(DEFAULT_ADAPTER1),
-        "Alternative adapter if auto-detect mechanism fails.. (default: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)")
-        ("sensitive", "Sensitive mode can be used when the user is sure that the dataset contains adapters. Under sensitive mode, we do not restrict the minimum number of occurence of kmers when assembly adapters. By default, the minimum number of occurence of kmers must exceed 10.")
-        ("bam_input,b", 
-        boost::program_options::
-            value<std::string>(&bam_fname)->default_value(""),
-            "Transform reads in a BAM file into a FastA file. Then trim off adapters from the FastA file. The file name of the untrimmed Fasta file is specified by the input file name for Skewer, while the file name of the trimmed Fasta file is also specified by the output file name for Skewer.")
-        ("UMI,u", "Estimate the size of UMI sequences. The result will be printed on the screen.");
+            "Alternative adapter if auto-detect mechanism fails.")
+        ("sensitive", 
+            "By default, minimum number of kmers must exceed 10 during assembly adapters. "
+            "However, if user have confidence that the dataset contains adapters, sensitive "
+            "mode would be more suitable.\n"
+            "Under sensitive mode, minimum number of kmers (--prune_factor) would not be "
+            "restricted.")
+        ("UMI,u", 
+            "Estimate the size of UMI sequences, results will be printed to console by "
+            "default.");
 
         
         boost::program_options::variables_map vm;
@@ -325,11 +356,6 @@ void init_single(int argc, const char* argv[])
             min_multi = vm["max_align"].as<size_t>();
         }
 
-        if (vm.count("enable_mismatch"))
-        {
-            enable_mismatch = vm["enable_mismatch"].as<bool>();
-        }
-
         if (vm.count("prune_factor"))
         {
             prune_factor = vm["prune_factor"].as<float>();
@@ -339,12 +365,6 @@ void init_single(int argc, const char* argv[])
                 prune_factor = 0.03;
             }
         }
-        
-        if (vm.count("fasta") || !bam_fname.empty())
-        {
-            is_fastq = false;
-        }
-
         if (vm.count("sensitive"))
         {
             is_sensitive = true;
@@ -355,9 +375,26 @@ void init_single(int argc, const char* argv[])
             estimate_umi_len = true;
         }
 
+        if (ifs_name[0].find(".gz") == ifs_name[0].size() - 3)
+            is_gz_input = true;
+        // if (ofs_name[0].find(".gz") == ofs_name[0].size() - 3)
+        //     is_gz_output = true;
+
+        std::string fa_ext(".fa");
+        if (is_gz_input)
+            fa_ext.append(".gz");
+
+        if (ifs_name[0].find(fa_ext) != std::string::npos)
+        {
+        	ofs_name[0] += ".fasta";
+            is_fastq = false;
+        }
+        else
+        	ofs_name[0] += ".fastq";
+
         std::cout << "Index prefix: " << index_prefix << std::endl;
         std::cout << "Seed length: " << seed_len << ", Maximum alignment: " << min_multi << ", sensitive mode: " << is_sensitive << std::endl;
-        std::cout << "Enable mismatch: " << enable_mismatch << ", Prune factor: " << prune_factor << ", is fastq: " << is_fastq << std::endl;
+        std::cout << "No mismatch: " << no_mismatch << ", Prune factor: " << prune_factor << ", is fastq: " << is_fastq << std::endl;
         std::cout << "Default adapter: " << DEFAULT_ADAPTER1 << std::endl;
 
     }
@@ -379,16 +416,18 @@ void init_single(int argc, const char* argv[])
 void init_paired(int argc, const char* argv[])
 {
     std::string usage = R"(
-	*********************************************************************************
-	+----------+
-	|Paired End|
-	+----------+
-	Paired-end adapter trimming.
-	EARRINGS takes paired-end FastQ/FastA format input files (dual files), and outputs 
-	adapter removed FastQ/FastA format output files (dual files).
+*******************************************************************************************
++----------+
+|Paired End|
++----------+
+Paired-end adapter trimming.
+EARRINGS takes paired-end FastQ/FastA format input files (dual files), and outputs 
+adapter removed FastQ/FastA format output files (dual files).
 
-	> EARRINGS paired -1 test_file/test_paired1.fq -2 test_file/test_paired2.fq -t thread
-	*********************************************************************************
+> EARRINGS paired -1 test_file/test_paired1.fa -2 test_file/test_paired2.fa -t thread
+> EARRINGS paired -1 test_file/test_paired1.fq -2 test_file/test_paired2.fq -t thread
+> EARRINGS paired -1 test_file/test_paired1.fq.gz -2 test_file/test_paired2.fq.gz -t thread
+*******************************************************************************************
 )"; 
     
     boost::program_options::options_description opts {usage};
@@ -399,54 +438,56 @@ void init_paired(int argc, const char* argv[])
         ("input1,1", 
          boost::program_options::
             value<std::string>(&ifs_name[0])->required(), 
-         "The Paired-End FastQ input file 1 (.fq) (required)")
+            "The Paired-end reads input file 1.")
         ("input2,2", 
          boost::program_options::
             value<std::string>(&ifs_name[1])->required(), 
-         "The Paired-End FastQ input file 2 (.fq) (required)")
-        ("help,h", "Display help message and exit.")
+            "The Paired-end reads input file 2.")
+        ("help,h", 
+            "Display help message and exit.")
         ("output,o",
          boost::program_options::
-            value<std::string>(&ofs_name[0])->default_value("EARRINGS_pe"),
-        "The Paired-End FastQ output file prefix (default: EARRINGS_pe)")
+            value<std::string>(&ofs_name[0])->default_value("trimmed_pe"),
+            "The Paired-End FastQ output file prefix.")
         ("adapter1,a",
-        boost::program_options::
+         boost::program_options::
             value<std::string>(&DEFAULT_ADAPTER1)->default_value(DEFAULT_ADAPTER1),
-        "Default adapter 1 when auto-detect fails. (default: AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)")
+            "Alternative adapter 1 if auto-detect mechanism fails.")
         ("adapter2,A",
-        boost::program_options::
+         boost::program_options::
             value<std::string>(&DEFAULT_ADAPTER2)->default_value(DEFAULT_ADAPTER2),
-        "Default adapter 2 when auto-detect fails. (default: AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTA)")
+            "Alternative adapter 2 if auto-detect mechanism fails.")
         ("thread,t", 
          boost::program_options::
             value<size_t>()->default_value(1), 
-         "The number of threads used to run the program. (default: 1)")
+            "The number of threads used to run the program.")
         ("min_length,m",
          boost::program_options::
             value<size_t>()->default_value(0),
-            "Abort the read if the length of the read is less than m. (default: 0)")
+            "Skip the read if the length of the read is less than this value.")
         ("rc_thres,M",
          boost::program_options::
             value<float>()->default_value(0.7),
-            "Mismatch threshold applied in reverse complement scan. (default: 0.7)")
+            "Mismatch threshold applied in reverse complement scan.")
         ("ss_thres,s",
          boost::program_options::
             value<float>()->default_value(0.9),
-            "Mismatch threshold applied in gene portion check. (default: 0.9)")
+            "Mismatch threshold applied in gene portion check.")
         ("as_thres,S",
          boost::program_options::
             value<float>()->default_value(0.8),
-            "Mismatch threshold applied in adapter portion check. (default: 0.8)")
+            "Mismatch threshold applied in adapter portion check.")
         ("prune_factor,f",
          boost::program_options::
             value<float>()->default_value(0.03),
-            "Prune factor used when assembling adapters using the de Bruijn graph. kmer frequency lower than prune factor will be aborted.(default: 0.03)")
-        ("sensitive", "Sensitive mode can be used when the user is sure that the dataset contains adapters. Under sensitive mode, we do not restrict the minimum number of occurence of kmers when assembly adapters. By default, the minimum number of occurence of kmers must exceed 10.")
-        ("fasta,F", "Specify input file type as FastA. (default input file format: FastQ)")
-        ("bam_input,b", 
-         boost::program_options::
-            value<std::string>(&bam_fname)->default_value(""),
-            "Transform reads in a BAM file into two FastA files. Then trim off adapters from the FastA files. The file names of the untrimmed Fasta files are determined by input1 and input2, while the file names of the trimmed Fasta files are determined by output1 and output2.");
+            "Prune factor used when assembling adapters using the de Bruijn graph. Kmer "
+            "frequency lower than the prune factor will be skipped.")
+        ("sensitive", 
+            "By default, minimum number of kmers must exceed 10 during assembly adapters. "
+            "However, if user have confidence that the dataset contains adapters, sensitive "
+            "mode would be more suitable.\n"
+            "Under sensitive mode, minimum number of kmers (--prune_factor) would not be "
+            "restricted.");
         
         boost::program_options::variables_map vm;
         boost::program_options::store (
@@ -476,19 +517,6 @@ void init_paired(int argc, const char* argv[])
                 prune_factor = 0.03;
             }
         }
-		
-		ofs_name[1] = ofs_name[0];
-        if (vm.count("fasta") || !bam_fname.empty())
-        {
-        	ofs_name[0] += "_1.fasta";
-        	ofs_name[1] += "_2.fasta";
-            is_fastq = false;
-        }
-        else
-        {
-        	ofs_name[0] += "_1.fastq";
-        	ofs_name[1] += "_2.fastq";
-        }
 
         if (vm.count("sensitive"))
         {
@@ -499,9 +527,31 @@ void init_paired(int argc, const char* argv[])
         seq_cmp_rate = (vm["ss_thres"].as<float>() > 0.0 && vm["ss_thres"].as<float>() < 1.0) ? vm["ss_thres"].as<float>() : 0.9;
         adapter_cmp_rate = (vm["as_thres"].as<float>() > 0.0 && vm["as_thres"].as<float>() < 1.0) ? vm["as_thres"].as<float>() : 0.8;
 
+        if (ifs_name[0].find(".gz") == ifs_name[0].size() - 3)
+            is_gz_input = true;
+        // if (ofs_name[0].find(".gz") == ofs_name[0].size() - 3)
+        //     is_gz_output = true;
+
+        std::string fa_ext(".fa");
+        if (is_gz_input)
+            fa_ext.append(".gz");
+
+        ofs_name[1] = ofs_name[0];
+        if (ifs_name[0].find(fa_ext) != std::string::npos)
+        {
+            ofs_name[0] += "_1.fasta";
+            ofs_name[1] += "_2.fasta";
+            is_fastq = false;
+        }
+        else
+        {
+            ofs_name[0] += "_1.fastq";
+            ofs_name[1] += "_2.fastq";
+        }
+
         std::cout << "# of threads: " << thread_num << ", Prune factor: " << prune_factor << ", Minimum output length: " << min_length << std::endl;
         std::cout << "Match rate: " << match_rate << ", Seq cmp rate: " << seq_cmp_rate << ", Adapter cmp rate: " << adapter_cmp_rate << std::endl; 
-        std::cout << "is fastq: " << is_fastq << ", sensitive mode: " << is_sensitive << std::endl;
+        std::cout << "is fastq: " << is_fastq << ", is gzip input: " << is_gz_input << ", sensitive mode: " << is_sensitive << std::endl;
         std::cout << "Default adapter1: " << DEFAULT_ADAPTER1 << std::endl;
         std::cout << "Default adapter2: " << DEFAULT_ADAPTER2 << std::endl;
     }

@@ -40,6 +40,7 @@ void PE_trim()
 
     if (is_fastq)
     {
+        record_line = 4;
         if (is_gz_input)
         {
             if (is_gz_output)
@@ -81,6 +82,7 @@ void PE_trim()
     }
     else
     {
+        record_line = 2;
         if (is_gz_input)
         {
             if (is_gz_output)

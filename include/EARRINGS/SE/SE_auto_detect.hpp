@@ -56,14 +56,14 @@ std::vector<std::string> tailor_pipeline(std::string& reads_path
         | pipeline::range::align(aligner)
         | ranges::view::transform(
             [&tails](auto&& AlignedReads_v) {
-            for(auto&& i : AlignedReads_v)
-            {
-                if (i.tail_pos_ >= 0)
+                for(auto&& i : AlignedReads_v)
                 {
-                    tails.emplace_back(i.fq_.seq.substr(i.fq_.seq.length() - i.tail_pos_ - 1));
+                    if (i.tail_pos_ >= 0)
+                    {
+                        tails.emplace_back(i.fq_.seq.substr(i.fq_.seq.length() - i.tail_pos_ - 1));
+                    }
                 }
-            }
-            return AlignedReads_v;
+                return AlignedReads_v;
             }
         )	
         | nucleona::range::endp;
@@ -82,12 +82,12 @@ std::pair<std::string, bool> seat_adapter_auto_detect(
     std::vector<std::string> tails;
     if (is_fastq)
     {
-        tailor::TailorMain<falseType::value> tailor_mapping(thread_num, seed_len, min_multi, index_prefix, enable_mismatch);
+        tailor::TailorMain<falseType::value> tailor_mapping(thread_num, seed_len, min_multi, index_prefix, !no_mismatch);
         tails = tailor_pipeline<tailor::Fastq>(reads_path, thread_num, tailor_mapping, DETECT_N_READS);
     }
     else
     {
-        tailor::TailorMain<trueType::value> tailor_mapping(thread_num, seed_len, min_multi, index_prefix, enable_mismatch);
+        tailor::TailorMain<trueType::value> tailor_mapping(thread_num, seed_len, min_multi, index_prefix, !no_mismatch);
         tails = tailor_pipeline<tailor::Fasta>(reads_path, thread_num, tailor_mapping, DETECT_N_READS);
     }
 

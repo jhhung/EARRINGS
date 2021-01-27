@@ -14,16 +14,16 @@
 bool is_fastq = true;
 bool is_sensitive = false;
 bool is_gz_input(false), is_gz_output(false);
+bool is_bam(false);
 size_t record_line = 4;
 constexpr size_t DETECT_N_READS = 10000;
-std::string bam_fname;
 
 // for SE
 std::string index_prefix; 
 size_t seed_len(18);
 size_t min_multi(0);
 float prune_factor(0.1);
-bool enable_mismatch(true);
+bool no_mismatch(false);
 bool estimate_umi_len(false);
 
 // for PE
