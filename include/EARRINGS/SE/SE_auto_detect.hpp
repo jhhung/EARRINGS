@@ -9,6 +9,9 @@
 #include <Nucleona/range/v3_impl.hpp>
 #include <Nucleona/parallel/thread_pool.hpp>
 #include <Nucleona/parallel/asio_pool.hpp>
+#include <boost/iostreams/device/file.hpp>
+#include <boost/iostreams/filtering_stream.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
 #include <cmath>
 #include <fstream>
 #include <atomic>
@@ -33,8 +36,8 @@ void get_reads(std::istream& is, std::vector<FORMAT>& buf, size_t num_reads)
 using trueType = std::bool_constant<true>;
 using falseType = std::bool_constant<false>;
 
-template<class FORMAT, class TailorMain>
-std::vector<std::string> tailor_pipeline(std::string& reads_path
+template<class IFStream, class TailorMain>
+std::vector<std::string> tailor_pipeline(IFStream&& ifs
                                        , size_t thread_num
                                        , TailorMain&& tailor_mapping
                                        , size_t num_reads) 
@@ -45,13 +48,12 @@ std::vector<std::string> tailor_pipeline(std::string& reads_path
     using DataType = typename std::remove_const_t<std::remove_reference_t<decltype(aligner)>>::FASTQ;
     constexpr pipeline::range::format_reader_fn<DataType> format_reader{};  
 
-    std::ifstream input(reads_path);
     std::vector<std::string> tails;
     tails.reserve(num_reads);
     size_t counter(0);
-    while(input.good() && tails.size() < 3000 && counter < 3)
+    while(ifs.good() && tails.size() < 3000 && counter < 3)
     {
-        input
+        ifs
         | format_reader()
         | pipeline::range::align(aligner)
         | ranges::view::transform(
@@ -83,12 +85,56 @@ std::pair<std::string, bool> seat_adapter_auto_detect(
     if (is_fastq)
     {
         tailor::TailorMain<falseType::value> tailor_mapping(thread_num, seed_len, min_multi, index_prefix, !no_mismatch);
-        tails = tailor_pipeline<tailor::Fastq>(reads_path, thread_num, tailor_mapping, DETECT_N_READS);
+        if (is_gz_input)
+        {
+            boost::iostreams::filtering_istream ifs;
+
+            ifs.push(boost::iostreams::gzip_decompressor());
+            auto&& src(boost::iostreams::file_source(reads_path, std::ios_base::binary));
+            if (!src.is_open())
+                throw std::runtime_error("Can't open input gz file normally\n");
+            
+            ifs.push(src);
+            if (!ifs.good())
+                throw std::runtime_error("Can't open input gz stream normally\n");
+            
+            tails = tailor_pipeline(ifs, thread_num, tailor_mapping, DETECT_N_READS);
+        }
+        else
+        {
+            std::ifstream ifs(reads_path);
+            if (!(ifs.is_open() && ifs.good()))
+                throw std::runtime_error("Can't open input file normally\n");
+            
+            tails = tailor_pipeline(ifs, thread_num, tailor_mapping, DETECT_N_READS);
+        }
     }
     else
     {
         tailor::TailorMain<trueType::value> tailor_mapping(thread_num, seed_len, min_multi, index_prefix, !no_mismatch);
-        tails = tailor_pipeline<tailor::Fasta>(reads_path, thread_num, tailor_mapping, DETECT_N_READS);
+        if (is_gz_input)
+        {
+            boost::iostreams::filtering_istream ifs;
+
+            ifs.push(boost::iostreams::gzip_decompressor());
+            auto&& src(boost::iostreams::file_source(reads_path, std::ios_base::binary));
+            if (!src.is_open())
+                throw std::runtime_error("Can't open input gz file normally\n");
+            
+            ifs.push(src);
+            if (!ifs.good())
+                throw std::runtime_error("Can't open input gz stream normally\n");
+            
+            tails = tailor_pipeline(ifs, thread_num, tailor_mapping, DETECT_N_READS);
+        }
+        else
+        {
+            std::ifstream ifs(reads_path);
+            if (!(ifs.is_open() && ifs.good()))
+                throw std::runtime_error("Can't open input file normally\n");
+            
+            tails = tailor_pipeline(ifs, thread_num, tailor_mapping, DETECT_N_READS);
+        }
     }
 
     // std::cerr << "total number of tails sampled: " << tails.size() << "\n";

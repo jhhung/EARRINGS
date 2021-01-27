@@ -2613,6 +2613,15 @@ int main(int argc, const char * argv[])
 		}
 		para.baseQual = (para.fastqFormat == SOLEXA_FASTQ) ? 64 : 33;
 	}
+	
+	if (para.fastqFormat == skewer::FASTA) {
+		for (auto&& out : para.output)
+			out.at(out.size() - 1) = 'a';
+
+		for (auto&& out : para.output2)
+			out.at(out.size() - 1) = 'a';
+	}
+
 	if(!stats.initHist(&para)){
 		fprintf(stderr, "Error: can not allocate memory for audit\n");
 		return 1;

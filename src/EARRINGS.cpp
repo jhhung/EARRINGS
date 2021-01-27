@@ -50,24 +50,15 @@ int main(int argc, const char* argv[])
         skewer::cParameter para;
         char errMsg[256];
         init_single(argc, argv);
-        
-        std::cout << "input: " << ifs_name[0] << "\n";
 
-        if (ifs_name[0].find(".bam") != std::string::npos || 
-            ifs_name[0].find(".ubam") != std::string::npos)
+        if (is_bam)
         {
-            is_bam = true;
-            if (is_gz_input) {
-                std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
-                return 1;
-            }
             std::string tmp_name("/tmp/EARRINGS_bam_reads.tmp");
 
             std::cerr << "Processing BAM file...\n";
             auto num_records = Process_uBAMs::extract_reads_from_uBAMs(
                                                     ifs_name[0]
                                                   , tmp_name);
-            is_fastq = false;
             ifs_name[0] = tmp_name;
             std::cerr << "Finish processing BAM file!\n";
             // check if the number of BAM records is gt than DETECT_N_READS
@@ -77,18 +68,18 @@ int main(int argc, const char* argv[])
             }
         }
 
-		auto adapter_info = seat_adapter_auto_detect(ifs_name[0], para.nThreads);  // auto-detect adapter 
+        auto adapter_info = seat_adapter_auto_detect(ifs_name[0], para.nThreads);  // auto-detect adapter 
         
         // input, output, min_len, thread, adapter, quiet flag
         std::vector<const char*> skewer_argv(10);
         skewer_argv[0] = "skewer";  // skewer is required to install beforehead.
-		skewer_argv[1] = ifs_name[0].c_str(); // input
-		skewer_argv[2] = "-o";  // output
-		skewer_argv[3] = ofs_name[0].c_str();
-		skewer_argv[4] = "-l";  // min_len
-		skewer_argv[5] = std::to_string(min_length).c_str();
-		skewer_argv[6] = "-t";  // thread
-		skewer_argv[7] = std::to_string(thread_num).c_str();
+        skewer_argv[1] = ifs_name[0].c_str(); // input
+        skewer_argv[2] = "-o";  // output
+        skewer_argv[3] = ofs_name[0].c_str();
+        skewer_argv[4] = "-l";  // min_len
+        skewer_argv[5] = std::to_string(min_length).c_str();
+        skewer_argv[6] = "-t";  // thread
+        skewer_argv[7] = std::to_string(thread_num).c_str();
         int32_t iRet = para.GetOpt(skewer_argv.size() - 2, skewer_argv.data(), errMsg);
         // copy from skewer's main program.
         if (iRet < 0)
@@ -124,14 +115,8 @@ int main(int argc, const char* argv[])
     {
         init_paired(argc, argv);
 
-        if (ifs_name[0].find(".bam") != std::string::npos || 
-            ifs_name[0].find(".ubam") != std::string::npos)
+        if (is_bam)
         {
-            is_bam = true;
-            if (is_gz_input) {
-                std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
-                return 1;
-            }
             std::string tmp_name1("/tmp/EARRINGS_bam_reads1.tmp");
             std::string tmp_name2("/tmp/EARRINGS_bam_reads2.tmp");
             // extract reads are fasta by default
@@ -139,7 +124,6 @@ int main(int argc, const char* argv[])
                                                     ifs_name[0]
                                                   , tmp_name1
                                                   , tmp_name2);
-            is_fastq = false;
             
             // check if the number of BAM records is gt than DETECT_N_READS
             ifs_name[0] = tmp_name1;
@@ -161,7 +145,7 @@ int main(int argc, const char* argv[])
         return 0;
     }
 
-	end = std::chrono::steady_clock::now();
+    end = std::chrono::steady_clock::now();
     std::chrono::duration<double> sec(end - start);
     std::cout << sec.count() << " sec\n";
 
@@ -375,28 +359,56 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             estimate_umi_len = true;
         }
 
-        if (ifs_name[0].find(".gz") == ifs_name[0].size() - 3)
+        std::string fa_ext(".fa"), fasta_ext(".fasta");
+        if (ifs_name[0].find(".gz") == ifs_name[0].size() - 3) {
             is_gz_input = true;
+            fa_ext.append(".gz");
+            fasta_ext.append(".gz");
+        }
         // if (ofs_name[0].find(".gz") == ofs_name[0].size() - 3)
         //     is_gz_output = true;
 
-        std::string fa_ext(".fa");
-        if (is_gz_input)
-            fa_ext.append(".gz");
+        if (ifs_name[0].find(".bam") == ifs_name[0].size() - 4) {
+            is_bam = true;
+            is_fastq = false;
+            fa_ext.append(".bam");
+            fasta_ext.append(".bam");
+            if (is_gz_input) {
+                std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
+                exit(1);
+            }
+        }
+        if (ifs_name[0].find(".ubam") == ifs_name[0].size() - 5) {
+            is_bam = true;
+            is_fastq = false;
+            fa_ext.append(".ubam");
+            fasta_ext.append(".ubam");
+            if (is_gz_input) {
+                std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
+                exit(1);
+            }
+        }
 
-        if (ifs_name[0].find(fa_ext) != std::string::npos)
+        if (ifs_name[0].find(fa_ext) != std::string::npos || 
+            ifs_name[0].find(fasta_ext) != std::string::npos)
         {
-        	ofs_name[0] += ".fasta";
+            ofs_name[0] += ".fasta";
             is_fastq = false;
         }
         else
-        	ofs_name[0] += ".fastq";
+            ofs_name[0] += ".fastq";
 
+        std::cout << std::boolalpha;
         std::cout << "Index prefix: " << index_prefix << std::endl;
-        std::cout << "Seed length: " << seed_len << ", Maximum alignment: " << min_multi << ", sensitive mode: " << is_sensitive << std::endl;
-        std::cout << "No mismatch: " << no_mismatch << ", Prune factor: " << prune_factor << ", is fastq: " << is_fastq << std::endl;
+        std::cout << "Input file name: " << ifs_name[0] << std::endl;
+        std::cout << "Output file name: " << ofs_name[0] << std::endl;
+        std::cout << "# of threads: " << thread_num << std::endl;
+        std::cout << "Is fastq: " << is_fastq << ", Is gz input: " << is_gz_input << ", Is bam: " << is_bam << std::endl;
+        std::cout << "Seed length: " << seed_len << ", Max alignment: " << min_multi << ", No mismatch: " << no_mismatch << std::endl;
+        std::cout << "Prune factor: " << prune_factor << ", Sensitive mode: " << is_sensitive << std::endl;
+        std::cout << "Min length: " << min_length << ", UMI: " << estimate_umi_len << std::endl;
         std::cout << "Default adapter: " << DEFAULT_ADAPTER1 << std::endl;
-
+        std::cout << std::noboolalpha;
     }
     catch (std::exception& e) 
     {
@@ -527,33 +539,61 @@ adapter removed FastQ/FastA format output files (dual files).
         seq_cmp_rate = (vm["ss_thres"].as<float>() > 0.0 && vm["ss_thres"].as<float>() < 1.0) ? vm["ss_thres"].as<float>() : 0.9;
         adapter_cmp_rate = (vm["as_thres"].as<float>() > 0.0 && vm["as_thres"].as<float>() < 1.0) ? vm["as_thres"].as<float>() : 0.8;
 
-        if (ifs_name[0].find(".gz") == ifs_name[0].size() - 3)
+        std::string fa_ext(".fa"), fasta_ext(".fasta");
+        if (ifs_name[0].find(".gz") == ifs_name[0].size() - 3) {
             is_gz_input = true;
+            fa_ext.append(".gz");
+            fasta_ext.append(".gz");
+        }
         // if (ofs_name[0].find(".gz") == ofs_name[0].size() - 3)
         //     is_gz_output = true;
 
-        std::string fa_ext(".fa");
-        if (is_gz_input)
-            fa_ext.append(".gz");
+        if (ifs_name[0].find(".bam") == ifs_name[0].size() - 4) {
+            is_bam = true;
+            is_fastq = false;
+            fa_ext.append(".bam");
+            fasta_ext.append(".bam");
+            if (is_gz_input) {
+                std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
+                exit(1);
+            }
+        }
+        if (ifs_name[0].find(".ubam") == ifs_name[0].size() - 5) {
+            is_bam = true;
+            is_fastq = false;
+            fa_ext.append(".ubam");
+            fasta_ext.append(".ubam");
+            if (is_gz_input) {
+                std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
+                exit(1);
+            }
+        }
 
         ofs_name[1] = ofs_name[0];
-        if (ifs_name[0].find(fa_ext) != std::string::npos)
+        if (ifs_name[0].find(fa_ext) != std::string::npos || 
+            ifs_name[0].find(fasta_ext) != std::string::npos)
         {
             ofs_name[0] += "_1.fasta";
             ofs_name[1] += "_2.fasta";
             is_fastq = false;
         }
-        else
-        {
+        else {
             ofs_name[0] += "_1.fastq";
             ofs_name[1] += "_2.fastq";
         }
 
-        std::cout << "# of threads: " << thread_num << ", Prune factor: " << prune_factor << ", Minimum output length: " << min_length << std::endl;
-        std::cout << "Match rate: " << match_rate << ", Seq cmp rate: " << seq_cmp_rate << ", Adapter cmp rate: " << adapter_cmp_rate << std::endl; 
-        std::cout << "is fastq: " << is_fastq << ", is gzip input: " << is_gz_input << ", sensitive mode: " << is_sensitive << std::endl;
+        std::cout << std::boolalpha;
+        std::cout << "Index prefix: " << index_prefix << std::endl;
+        std::cout << "Input file name 1: " << ifs_name[0] << ", Input file name 2:" << ifs_name[1] << std::endl;
+        std::cout << "Output file name 1: " << ofs_name[0]<< ", Output file name 2:" << ofs_name[1]  << std::endl;
+        std::cout << "# of threads: " << thread_num << std::endl;
+        std::cout << "Is fastq: " << is_fastq << ", Is gz input: " << is_gz_input << ", Is bam: " << is_bam << std::endl;
+        std::cout << "Prune factor: " << prune_factor << ", Sensitive mode: " << is_sensitive << std::endl;
+        std::cout << "Min length: " << min_length << ", UMI: " << estimate_umi_len << std::endl;
+        std::cout << "Match rate: " << match_rate << ", Seq cmp rate: " << seq_cmp_rate << ", Adapter cmp rate: " << adapter_cmp_rate << std::endl;
         std::cout << "Default adapter1: " << DEFAULT_ADAPTER1 << std::endl;
         std::cout << "Default adapter2: " << DEFAULT_ADAPTER2 << std::endl;
+        std::cout << std::noboolalpha;
     }
     catch (std::exception& e) 
     {
