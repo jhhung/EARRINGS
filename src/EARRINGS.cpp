@@ -373,23 +373,20 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             is_fastq = false;
             fa_ext.append(".bam");
             fasta_ext.append(".bam");
-            if (is_gz_input) {
-                std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
-                exit(1);
-            }
         }
         if (ifs_name[0].find(".ubam") == ifs_name[0].size() - 5) {
             is_bam = true;
             is_fastq = false;
             fa_ext.append(".ubam");
             fasta_ext.append(".ubam");
-            if (is_gz_input) {
-                std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
-                exit(1);
-            }
+        }
+        if (ifs_name[0].find("bam.gz") == ifs_name[0].size() - 6) {
+            std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
+            exit(1);
         }
 
-        if (ifs_name[0].find(fa_ext) != std::string::npos || 
+        if (is_bam || 
+            ifs_name[0].find(fa_ext) != std::string::npos || 
             ifs_name[0].find(fasta_ext) != std::string::npos)
         {
             ofs_name[0] += ".fasta";
@@ -553,24 +550,21 @@ adapter removed FastQ/FastA format output files (dual files).
             is_fastq = false;
             fa_ext.append(".bam");
             fasta_ext.append(".bam");
-            if (is_gz_input) {
-                std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
-                exit(1);
-            }
         }
         if (ifs_name[0].find(".ubam") == ifs_name[0].size() - 5) {
             is_bam = true;
             is_fastq = false;
             fa_ext.append(".ubam");
             fasta_ext.append(".ubam");
-            if (is_gz_input) {
-                std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
-                exit(1);
-            }
+        }
+        if (ifs_name[0].find("bam.gz") == ifs_name[0].size() - 6) {
+            std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
+            exit(1);
         }
 
         ofs_name[1] = ofs_name[0];
-        if (ifs_name[0].find(fa_ext) != std::string::npos || 
+        if (is_bam || 
+            ifs_name[0].find(fa_ext) != std::string::npos || 
             ifs_name[0].find(fasta_ext) != std::string::npos)
         {
             ofs_name[0] += "_1.fasta";

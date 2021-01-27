@@ -118,7 +118,7 @@ Paired-end mode parameters
   - -1 [ --input1 ] arg</br>
     The Paired-end reads input file 1.
   - -2 [ --input2 ] arg</br>
-    The Paired-end reads input file 2.
+    The Paired-end reads input file 2, note that if input file is .bam/.ubam, this parameter has no function.
 - Optional
   - Utils
     - -h [ --help ]</br>
