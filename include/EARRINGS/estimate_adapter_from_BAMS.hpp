@@ -60,9 +60,10 @@ private:
 
 public:
     // singled-end
+    template <typename Str1, typename Str2>
     inline static size_t extract_reads_from_uBAMs
-                                        (std::string& bam_fname
-                                       , std::string& output_fname) 
+                                        (Str1&& bam_fname
+                                       , Str2&& output_fname) 
     {
         std::ifstream ifs(bam_fname, std::ios::binary);
         std::ofstream ofs(output_fname);
@@ -73,7 +74,7 @@ public:
 
         if (!ofs)
         {
-            throw std::runtime_error("Can't open input fastq/fasta file\n");
+            throw std::runtime_error("Can't open temp file which stores reads extract from bam/ubam\n");
         }
 
         Header bam_header;
@@ -94,10 +95,11 @@ public:
     }
 
     // paired-end
+    template <typename Str1, typename Str2, typename Str3>
     inline static size_t extract_reads_from_uBAMs
-                                        (std::string& bam_fname
-                                       , std::string& output_fname1
-                                       , std::string& output_fname2) 
+                                        (Str1&& bam_fname
+                                       , Str2&& output_fname1
+                                       , Str3&& output_fname2) 
     {
         std::ifstream ifs(bam_fname, std::ios::binary);
         std::ofstream ofs1(output_fname1), ofs2(output_fname2);
