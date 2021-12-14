@@ -10,7 +10,8 @@ Like PEAT, EARRING adapts [skewer](https://github.com/relipmoc/skewer) for singl
 
 ## Requirement
 
-- [g++-8](https://gcc.gnu.org/gcc-8/) and cmake [3.10.0](https://cmake.org/download/) or higher to build EARRINGS
+- GUN [g++-8](https://gcc.gnu.org/gcc-8/) or higher (Gtest works with GUN [g++-8](https://gcc.gnu.org/gcc-8/) only )
+- cmake [3.10.0](https://cmake.org/download/) or higher to build EARRINGS
 - python [3.7](https://www.python.org/downloads/) or higher as well as [numpy](https://numpy.org/) and [pandas](https://pandas.pydata.org/) packages for the benchmarking
 
 ## Build
@@ -19,18 +20,29 @@ Like PEAT, EARRING adapts [skewer](https://github.com/relipmoc/skewer) for singl
 # In root directory of repository
 > mkdir build
 > cd build
-# If default gcc or g++ version != 8.0
-# -DCMAKE_C_COMPILER=/usr/bin/gcc-8 or -DCMAKE_CXX_COMPILER=/usr/bin/g++-8 is needed.
 > cmake .. -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=../stage
 > cmake --build . --target install
 > ./EARRINGS -h
+```
+
+### **Q&A**
+
+Q: Failed while compiling and get the error message about ```fatal: unable to access 'https://github.com/PhoebeWangintw/hunter.git/': Could not resolve host: github.com;```.\
+A: Please make sure your connection to ```github.com`` is clear, especially for the user who lives inside the GFW of China.
+
+Q: How do I change my default GUN GCC compiler?\
+A: To change default gcc and g++ version with 8.0 as example:\
+```
+# This environment setting works in the current session only.
+export CC=/Path/Locate/To/The/gcc-8
+export CXX=/Path/Locate/To/The/g++-8
 ```
 
 ## Execution
 
 There are 3 modes to execute EARRINGS: **build**, **single**, and **paired**.
 
-Build mode generates an index for the source reference sequence (e.g., the entire genome, a chromosome, a collection of panel genes, etc.) of the **single-end** reads. The index is **not** used for trimming paired-end reads.
+Build mode generates an index for the source reference sequence (e.g., the entire genome, a chromosome, a collection of panel genes, [GreenGenes](http://greengenes.secondgenome.com/) for meta-genomics etc.) of the **single-end** reads. The index is **not** used for trimming paired-end reads.
 
 Single mode and paired mode are used for single-end reads and paired-end reads respectively. Both of these two modes can auto-detect file types. ([.fa](https://en.wikipedia.org/wiki/FASTA_format)/[.fq](https://en.wikipedia.org/wiki/FASTQ_format), and their [.gz](https://en.wikipedia.org/wiki/FASTQ_format#General_compressors) or [.bam](https://en.wikipedia.org/wiki/Binary_Alignment_Map)/[.ubam](http://129.130.90.13/ion-docs/GUID-C202F9D0-386F-412D-97F9-E4DB77F1BB6E.html))
 
@@ -41,7 +53,7 @@ Before conducting single-end adapter trimming, **one has to prebuild the index**
 ```sh
 # ./EARRINGS build -r [ref_path] -p [index_prefix]
 > ./EARRINGS build -r hg38_chr1.fa -p earrings_hg38_chr1
-> ./EARRINGS build -r 16S_rRNA_panel.fa -p 16S_rRNA_penel
+> ./EARRINGS build -r 16S_rRNA_panel.fa -p 16S_rRNA_panel
 ```
 
 Build mode parameters

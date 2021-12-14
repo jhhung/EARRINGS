@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <string>
-#include <experimental/filesystem>
+#include <filesystem>
 #include <EARRINGS/PE/task.hpp>
 #include <EARRINGS/PE/buffer_manager.hpp>
 #include <EARRINGS/PE/rw_count.hpp>
@@ -13,7 +13,7 @@
 #include <string_view>
 #include <algorithm>
 
-namespace fs = std::experimental::filesystem;
+namespace fs = std::filesystem;
 using namespace EARRINGS;
 
 namespace EARRINGS
@@ -167,6 +167,11 @@ void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::process()
 		}
 		else
 		;
+        
+        if (_rw_count.all_finished)
+        {
+            std::cerr << "";
+        }
 
         if (_rw_count.all_finished)
         {
@@ -412,9 +417,9 @@ void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::write_all_task()
                 throw std::runtime_error("Can't read from specified files\n");
     
             _ofs[j] << tmp.rdbuf();
-            std::experimental::filesystem::remove(tmp_fname);
+            std::filesystem::remove(tmp_fname);
         }
-        std::experimental::filesystem::remove_all(path);   
+        std::filesystem::remove_all(path);   
     }
 }
 

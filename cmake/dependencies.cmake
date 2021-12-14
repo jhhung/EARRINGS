@@ -1,5 +1,5 @@
 # gtest
-if(BUILD_TESTS)
+if(BUILD_TESTS AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.1 )
     hunter_add_package(GTest)
     find_package(GTest CONFIG REQUIRED)
 endif()

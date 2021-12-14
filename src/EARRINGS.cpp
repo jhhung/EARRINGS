@@ -2,7 +2,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <experimental/filesystem>
+#include <filesystem>
 #include <boost/program_options.hpp>
 #include <EARRINGS/SE/SE_auto_detect.hpp>
 #include <EARRINGS/PE/PE_trimmer.hpp>
@@ -315,8 +315,8 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         if (vm.count("index_prefix"))
         {
             index_prefix = vm["index_prefix"].as<std::string>();
-            if (!std::experimental::filesystem::exists(index_prefix + ".table") || 
-                !std::experimental::filesystem::exists(index_prefix + ".rc_table"))
+            if (!std::filesystem::exists(index_prefix + ".table") || 
+                !std::filesystem::exists(index_prefix + ".rc_table"))
             {
                 throw std::runtime_error(
                         "Index " + index_prefix + ".table or " + index_prefix + ".rc_table "
@@ -386,8 +386,8 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         }
 
         if (is_bam || 
-            ifs_name[0].find(fa_ext) != std::string::npos || 
-            ifs_name[0].find(fasta_ext) != std::string::npos)
+            ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() || 
+            ifs_name[0].find( fasta_ext ) == ifs_name[0].length() - fasta_ext.length() )
         {
             ofs_name[0] += ".fasta";
             is_fastq = false;
@@ -563,9 +563,9 @@ adapter removed FastQ/FastA format output files (dual files).
         }
 
         ofs_name[1] = ofs_name[0];
-        if (is_bam || 
-            ifs_name[0].find(fa_ext) != std::string::npos || 
-            ifs_name[0].find(fasta_ext) != std::string::npos)
+        if (is_bam ||
+            ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() || 
+            ifs_name[0].find( fasta_ext ) == ifs_name[0].length() - fasta_ext.length() )
         {
             ofs_name[0] += "_1.fasta";
             ofs_name[1] += "_2.fasta";
