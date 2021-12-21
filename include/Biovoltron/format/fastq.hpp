@@ -782,6 +782,11 @@ class FASTQ
     {
         (*it) = "@" + std::move(name);
         (*(it + 3)) = std::move(seq_qual);
+
+        for( std::size_t i = (*(it + 1)).size(); i > seq.size(); --i )
+        {
+            (*(it + 1)).pop_back();
+        }
     }
 };
 
