@@ -71,7 +71,7 @@ int main(int argc, const char* argv[])
         auto adapter_info = seat_adapter_auto_detect(ifs_name[0], para.nThreads);  // auto-detect adapter 
         
         // input, output, min_len, thread, adapter, quiet flag
-        std::vector<const char*> skewer_argv(10);
+        std::vector<const char*> skewer_argv( is_sensitive ? 12 : 10 );
         skewer_argv[0] = "skewer";  // skewer is required to install beforehead.
         skewer_argv[1] = ifs_name[0].c_str(); // input
         skewer_argv[2] = "-o";  // output
@@ -80,6 +80,13 @@ int main(int argc, const char* argv[])
         skewer_argv[5] = std::to_string(min_length).c_str();
         skewer_argv[6] = "-t";  // thread
         skewer_argv[7] = std::to_string(thread_num).c_str();
+
+        if( is_sensitive )
+        {
+            skewer_argv[8] = "-r";  // error
+            skewer_argv[9] = "0.2";
+        }
+
         int32_t iRet = para.GetOpt(skewer_argv.size() - 2, skewer_argv.data(), errMsg);
         // copy from skewer's main program.
         if (iRet < 0)
@@ -102,8 +109,8 @@ int main(int argc, const char* argv[])
             }
             return 1;
         }
-        skewer_argv[8] = "-x";
-        skewer_argv[9] = std::get<0>(adapter_info).c_str();
+        skewer_argv[ is_sensitive ? 10 : 8 ] = "-x";
+        skewer_argv[ is_sensitive ? 11 : 9 ] = std::get<0>(adapter_info).c_str();
         if (std::get<1>(adapter_info))
         {
             skewer_argv.emplace_back("-C");
