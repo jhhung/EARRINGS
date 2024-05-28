@@ -365,6 +365,9 @@ void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::write_task(Task& task)
 	if(!f2.good())
 	    throw std::runtime_error("Can't read from tmp file2\n");
 
+    f1.exceptions(std::ofstream::badbit | std::ofstream::failbit);
+    f2.exceptions(std::ofstream::badbit | std::ofstream::failbit);
+
 	size_t start_pos(task.buf_idx * _chunk_size);
 	size_t end_pos(start_pos + _chunk_size);
 
@@ -392,8 +395,17 @@ void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::write_task(Task& task)
          }
     }
 
-	f1 << tmp1;
-	f2 << tmp2;
+    try
+    {
+        f1 << tmp1;
+        f2 << tmp2;
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << "ERROR: " << e.what() << std::endl;
+        std::cerr << "Failed to create/write temporary file, " << task.f_idx << "/" << _rw_count.rend_count << std::endl;
+        std::abort();
+    }
     
     f1.close();
     f2.close();
