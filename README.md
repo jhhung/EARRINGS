@@ -38,15 +38,15 @@ export CC=/Path/Locate/To/The/gcc-8
 export CXX=/Path/Locate/To/The/g++-8
 ```
 
-### **Note** Read Before Execution
+## Read Before Execution
 
-This note is written for Sinlge-End mode usage, include another two special mode smallRNA and skewer.
+This note is written for Single-End mode usage, including two other special modes: smallRNA and skewer.
 
-# Residual of 5'end adapter
+### Residual of 5' end adapter
 
 The Adapter Trimmer is typically used to process the 3' end adapter, but in some datasets, we have observed remnants of the 5' end adapter. In Paired-End mode, it will automatically handle both 5' and 3' adapters through cross-comparison. However, in Single-End mode, accurately identifying the 3' end adapter may be challenging due to the presence of residual 5' end adapter. Therefore, when using Single-End mode, it is essential to verify whether there are remnants of the 5' end adapter. If so, address this issue before running EARRINGS.
 
-# TDMD as 3' end adapter
+### TDMD as 3' end adapter
 
 When using the smallRNA mode, your reads are generally short and EARRINGS usually sets the seed length between 18-25. A short seed length significantly affects accurate adapter detection, especially when your data is rich in TDMD (Target-directed miRNA degradation). In TDMD, there may be a large amount of tailing in the small RNA reads that cannot be aligned on the genome, increasing the likelihood of being misjudged as part of the adapter. Therefore, different seed lengths alignments are performed to determine which adapter provides the best trimming result when using the smallRNA mode. However, not every dataset is ideal; thus it's important to confirm whether tails are being misjudged as adapters when processing small RNA. Failure to address this issue can lead to loss of TDMD information and biased results.
 
@@ -233,7 +233,7 @@ Special Skewer Single-End mode parameters
 - Required
   - -1 [ --input1 ] arg</br>
   The file path of Single-End reads.
-  - -a [ --adapter ] arg (=AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)</br>
+  - -a [ --adapter ] arg</br>
   Adapter squence for trimming.
 - Optional
   - Utils
