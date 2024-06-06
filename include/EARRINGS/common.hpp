@@ -33,6 +33,10 @@ size_t min_length(0);
 std::vector<std::string> ifs_name(2);
 std::vector<std::string> ofs_name(2);
 
+// for smallRNA
+size_t min_seed_len(21);
+size_t max_seed_len(25);
+
 bool loc_tail(true);  // adapter locates at tail/head
 // size_t umi_loc(0);  // 1/2/3: umi seq locates at read1/read2/both
 // size_t umi_len(0);

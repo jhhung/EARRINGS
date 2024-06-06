@@ -13,6 +13,8 @@
 
 void init_single(int argc, const char* argv[]);
 void init_paired(int argc, const char* argv[]);
+void init_smallrna(int argc, const char* argv[]);
+void init_skewer(int argc, const char* argv[]);
 void init_build(int argc, const char* argv[]);
 
 int main(int argc, const char* argv[])
@@ -29,13 +31,23 @@ int main(int argc, const char* argv[])
     EARRINGS v)" + ver + 
     R"( is an adapter trimmer with no a priori knowledge of adapter sequences.
     Usage:
+
     (1) Build index for reference sequence. This step is only apply to single-end ada-
         pter detection. 
-    > EARRINGS build -r ref_path -p index_prefix
-    (2) Adapter trimming
-    > EARRINGS single -p index_prefix -1 input1.fq -t thread_num
-    > EARRINGS paired -i input1.fq -I input2.fq -t thread_num 
-    See EARRINGS single/paired --help for more information about the parameters.
+
+        > EARRINGS build -r ref_path -p index_prefix
+
+    (2) Single-End/Paired-End adapter trimming
+
+        > EARRINGS single -p index_prefix -1 input1.fq
+        > EARRINGS paired -1 input1.fq -2 input2.fq
+
+    (3) Single-End special adapter trimming mode
+
+        > EARRINGS smallRNA -p index_prefix -1 input1.fq -s 21 -d 25
+        > EARRINGS skewer -1 input1.fq -a adapter_seq
+
+    See EARRINGS single/paired/smallRNA --help for more information about the parameters.
     *********************************************************************************
     )";
 
@@ -142,6 +154,131 @@ int main(int argc, const char* argv[])
         }
         PE_trim();
     }
+    else if (std::string(argv[1]) == "smallRNA")
+    {
+        skewer::cParameter para;
+        init_smallrna(argc, argv);
+
+        if (is_bam)
+        {
+            std::string tmp_name("/tmp/EARRINGS_bam_reads.tmp");
+
+            std::cerr << "Processing BAM file...\n";
+            auto num_records = Process_uBAMs::extract_reads_from_uBAMs(
+                                                    ifs_name[0]
+                                                  , tmp_name);
+            ifs_name[0] = tmp_name;
+            std::cerr << "Finish processing BAM file!\n";
+            // check if the number of BAM records is gt than DETECT_N_READS
+            if (num_records < DETECT_N_READS)
+            {
+                std::cerr << "Warning: Too few BAM records: " << num_records << "\n";
+            }
+        }
+
+        std::cout << "\nStart auto-detecting seed length for small RNA mode from " << min_seed_len << " to " << max_seed_len;
+        std::map< double, size_t > seed_lens = {};
+        std::map< size_t, std::string > adapters = {};
+        std::map< size_t, std::string > buffers = {};
+
+        for (seed_len = min_seed_len; seed_len <= max_seed_len; ++seed_len)
+        {
+            char buffer[2560];
+            freopen("/dev/null", "a", stdout);
+            setbuf(stdout, buffer);
+
+            auto adapter_info = seat_adapter_auto_detect(ifs_name[0], para.nThreads);  // auto-detect adapter
+            std::cerr << "\nTrying seed length: " << seed_len << " with found adapter: " << std::get<0>(adapter_info).c_str() << std::endl;
+
+            // input, output, min_len, thread, adapter, quiet flag
+            std::vector<const char*> skewer_argv( 12 );
+            std::string out_len = ofs_name[0] + "_len" + std::to_string(seed_len);
+            
+            skewer_argv[0] = "skewer";  // skewer is required to install beforehead.
+            skewer_argv[1] = ifs_name[0].c_str(); // input
+            skewer_argv[2] = "-o";  // output
+            skewer_argv[3] = (out_len).c_str();
+            skewer_argv[4] = "-l";  // min_len
+            skewer_argv[5] = std::to_string(min_length).c_str();
+            skewer_argv[6] = "-t";  // thread
+            skewer_argv[7] = std::to_string(thread_num).c_str();
+            skewer_argv[8] = "-r";  // error
+            skewer_argv[9] = "0.2";
+            skewer_argv[10] = "-x";
+            skewer_argv[11] = std::get<0>(adapter_info).c_str();
+
+            skewer::main(skewer_argv.size(), skewer_argv.data());
+            freopen("/dev/tty", "a", stdout);
+            
+            std::vector<std::string> split;
+            boost::iter_split( split, buffer, boost::algorithm::first_finder( "%) t" ));
+            boost::iter_split( split, split[0], boost::algorithm::first_finder( "(" ));
+
+            double trimmed = std::stod(split[split.size() -1]);
+            std::cerr << " (" << trimmed << "% trimmed)" << std::endl;
+
+            buffers[seed_len] = buffer;
+            adapters[seed_len] = std::get<0>(adapter_info).c_str();
+            seed_lens[trimmed] = seed_len;
+        }
+
+        std::cout << "\nThe best trimmed(%) result is: " << seed_lens.rbegin()->first << "%, from: "<< std::endl;
+        std::cout << "  seed_len: " << seed_lens.rbegin()->second << std::endl;
+        std::cout << "  trim-adapter: " << adapters[seed_lens.rbegin()->second] << std::endl;
+
+        std::cout << "\n" << buffers[seed_lens.rbegin()->second] << std::endl;
+
+        for (seed_len = min_seed_len; seed_len <= max_seed_len; ++seed_len)
+        {
+            if (seed_len == seed_lens.rbegin()->second)
+            {
+                std::rename((ofs_name[0] + "_len" + std::to_string(seed_len) + "-trimmed.fastq").c_str(), (ofs_name[0] + "-trimmed.fastq").c_str());
+                std::rename((ofs_name[0] + "_len" + std::to_string(seed_len) + "-trimmed.log").c_str(), (ofs_name[0] + "-trimmed.log").c_str());
+            }
+
+            std::remove((ofs_name[0] + "_len" + std::to_string(seed_len) + "-trimmed.fastq").c_str());
+            std::remove((ofs_name[0] + "_len" + std::to_string(seed_len) + "-trimmed.log").c_str());
+        }
+    }
+    else if (std::string(argv[1]) == "skewer")
+    {
+        skewer::cParameter para;
+        init_skewer(argc, argv);
+
+        if (is_bam)
+        {
+            std::string tmp_name("/tmp/EARRINGS_bam_reads.tmp");
+
+            std::cerr << "Processing BAM file...\n";
+            auto num_records = Process_uBAMs::extract_reads_from_uBAMs(
+                                                    ifs_name[0]
+                                                  , tmp_name);
+            ifs_name[0] = tmp_name;
+            std::cerr << "Finish processing BAM file!\n";
+            // check if the number of BAM records is gt than DETECT_N_READS
+            if (num_records < DETECT_N_READS)
+            {
+                std::cerr << "Warning: Too few BAM records: " << num_records << "\n";
+            }
+        }
+
+        // input, output, min_len, thread, adapter, quiet flag
+        std::vector<const char*> skewer_argv( 12 );
+        skewer_argv[0] = "skewer";  // skewer is required to install beforehead.
+        skewer_argv[1] = ifs_name[0].c_str(); // input
+        skewer_argv[2] = "-o";  // output
+        skewer_argv[3] = ofs_name[0].c_str();
+        skewer_argv[4] = "-l";  // min_len
+        skewer_argv[5] = std::to_string(min_length).c_str();
+        skewer_argv[6] = "-t";  // thread
+        skewer_argv[7] = std::to_string(thread_num).c_str();
+        skewer_argv[8] = "-r";  // error
+        skewer_argv[9] = "0.2";
+        skewer_argv[10] = "-x";
+        skewer_argv[11] = DEFAULT_ADAPTER1.c_str();
+
+        skewer::main(skewer_argv.size(), skewer_argv.data());
+    }
     else if (std::string(argv[1]) == "build")
     {
         init_build(argc, argv);
@@ -235,9 +372,9 @@ EARRINGS detects adapter using alignment-based method. Thus, it is necessary to
 prebuild the index first. For downstream adapter trimming, it is conducted using 
 Skewer with adapter parameters passed by EARRINGS automatically.
 
-> EARRINGS single -p earrings_idx -1 test_file/test_paired1.fa
-> EARRINGS single -p earrings_idx -1 test_file/test_paired1.fq
-> EARRINGS single -p earrings_idx -1 test_file/test_paired1.fq.gz
+> EARRINGS single -p earrings_idx -1 input1.fa
+> EARRINGS single -p earrings_idx -1 input1.fq
+> EARRINGS single -p earrings_idx -1 input1.fq.gz
 *********************************************************************************
     )";
     
@@ -440,9 +577,9 @@ Paired-end adapter trimming.
 EARRINGS takes paired-end FastQ/FastA format input files (dual files), and outputs 
 adapter removed FastQ/FastA format output files (dual files).
 
-> EARRINGS paired -1 test_file/test_paired1.fa -2 test_file/test_paired2.fa -t thread
-> EARRINGS paired -1 test_file/test_paired1.fq -2 test_file/test_paired2.fq -t thread
-> EARRINGS paired -1 test_file/test_paired1.fq.gz -2 test_file/test_paired2.fq.gz -t thread
+> EARRINGS paired -1 input1.fa -2 input2.fa
+> EARRINGS paired -1 input1.fq -2 input2.fq
+> EARRINGS paired -1 input1.fq.gz -2 input2.fq.gz
 *******************************************************************************************
 )"; 
     
@@ -610,3 +747,323 @@ adapter removed FastQ/FastA format output files (dual files).
     }
 }
 
+
+void init_smallrna(int argc, const char* argv[])
+{
+    std::string usage = R"(
+*********************************************************************************
++---------+
+|Small RNA|
++---------+
+Special small RNA mode Single-end adapter trimming. 
+This special mode is designed for small RNA reads, such as miRNA, piRNA, etc.
+smallRNA mode will automatically detect the seed length and adapter sequence,
+and using Skewer to trim the adapter from the reads (default as sensitive mode).
+
+> EARRINGS smallRNA -p earrings_idx -1 input1.fa
+> EARRINGS smallRNA -p earrings_idx -1 input1.fq
+> EARRINGS smallRNA -p earrings_idx -1 input1.fq.gz
+*********************************************************************************
+    )";
+    
+    boost::program_options::options_description opts {usage};
+    try
+    {
+        opts.add_options ()
+        ("index_prefix,p",
+         boost::program_options::
+            value<std::string>()->required(),
+            "The index prefix for pre-built index table. (required)")
+        ("input1,1", 
+         boost::program_options::
+            value<std::string>(&ifs_name[0])->required(), 
+            "The file path of Single-End reads. (required)")
+        ("help,h", 
+            "Display help message and exit.")
+        ("min_seed_len,s",
+         boost::program_options::
+            value<size_t>()->default_value(21),
+            "minimum seed length for the special small RNA mode. (default: 21)")
+        ("max_seed_len,d",
+         boost::program_options::
+            value<size_t>()->default_value(25),
+            "minimum seed length for the special small RNA mode. (default: 25)")
+        ("output,o",
+         boost::program_options::
+            value<std::string>(&ofs_name[0])->default_value("trimmed_sr"),
+            "The file prefix of Single-End FastQ output.")
+        ("min_length,m",
+         boost::program_options::
+            value<size_t>()->default_value(0),
+            "Skip the read if the length of the read is less than --min_length after trimming.")
+        ("thread,t", 
+         boost::program_options::
+            value<size_t>()->default_value(1), 
+            "The number of threads used to run the program.")
+        ("max_align,M",
+         boost::program_options::
+            value<size_t>()->default_value(0),
+            "Maximum number of candidates used in seed finding stage, 0 means unlimited.")
+        ("no_mismatch,e",
+         boost::program_options::
+            bool_switch(&no_mismatch),
+            "By default, EARRINGS can tolerate 1 error base at most if be set as true, "
+            "this flag can disable this mismatch toleration mechenism.")
+        ("adapter,a",
+         boost::program_options::
+            value<std::string>(&DEFAULT_ADAPTER1)->default_value(DEFAULT_ADAPTER1),
+            "Alternative adapter if auto-detect mechanism fails.")
+        ("UMI,u", 
+            "Estimate the size of UMI sequences, results will be printed to console by "
+            "default.");
+
+        boost::program_options::variables_map vm;
+        boost::program_options::store (
+            boost::program_options::command_line_parser(
+            argc, argv
+            ).options(opts).allow_unregistered().run(), vm
+        );
+
+        boost::program_options::notify(vm);
+
+        if (vm.count("help"))
+        {
+            std::cout << usage << "\n";
+            exit(0);
+        }
+
+        if (vm.count("index_prefix"))
+        {
+            index_prefix = vm["index_prefix"].as<std::string>();
+            if (!std::filesystem::exists(index_prefix + ".table") || 
+                !std::filesystem::exists(index_prefix + ".rc_table"))
+            {
+                throw std::runtime_error(
+                        "Index " + index_prefix + ".table or " + index_prefix + ".rc_table "
+                        "does not exist! Please build index first."
+                    );
+            }
+        }
+        
+        thread_num = vm["thread"].as<size_t>();
+        if (thread_num > 32) thread_num = 32;
+
+        is_sensitive = true;
+        min_length = vm["min_length"].as<size_t>();
+        
+        if (vm.count("min_seed_len"))
+        {
+            min_seed_len = vm["min_seed_len"].as<size_t>();
+        }
+
+        if (vm.count("max_seed_len"))
+        {
+            max_seed_len = vm["max_seed_len"].as<size_t>();
+        }
+
+        if (vm.count("max_align"))
+        {
+            min_multi = vm["max_align"].as<size_t>();
+        }
+
+        if (vm.count("prune_factor"))
+        {
+            prune_factor = vm["prune_factor"].as<float>();
+            if (prune_factor >= 1.0 || prune_factor < 0.0)
+            {
+                std::cout << "prune_factor must be between [0.0, 1.0). Setting it to 0.03.\n";
+                prune_factor = 0.03;
+            }
+        }
+
+        if (vm.count("UMI"))
+        {
+            estimate_umi_len = true;
+        }
+
+        std::string fa_ext(".fa"), fasta_ext(".fasta");
+        if (ifs_name[0].find(".gz") == ifs_name[0].size() - 3) {
+            is_gz_input = true;
+            fa_ext.append(".gz");
+            fasta_ext.append(".gz");
+        }
+        // if (ofs_name[0].find(".gz") == ofs_name[0].size() - 3)
+        //     is_gz_output = true;
+
+        if (ifs_name[0].find(".bam") == ifs_name[0].size() - 4) {
+            is_bam = true;
+            is_fastq = false;
+            fa_ext.append(".bam");
+            fasta_ext.append(".bam");
+        }
+        if (ifs_name[0].find(".ubam") == ifs_name[0].size() - 5) {
+            is_bam = true;
+            is_fastq = false;
+            fa_ext.append(".ubam");
+            fasta_ext.append(".ubam");
+        }
+        if (ifs_name[0].find("bam.gz") == ifs_name[0].size() - 6) {
+            std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
+            exit(1);
+        }
+
+        if (is_bam || 
+            ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() || 
+            ifs_name[0].find( fasta_ext ) == ifs_name[0].length() - fasta_ext.length() )
+        {
+            ofs_name[0] += ".fasta";
+            is_fastq = false;
+        }
+        else
+            ofs_name[0] += ".fastq";
+
+        std::cout << std::boolalpha;
+        std::cout << "Index prefix: " << index_prefix << std::endl;
+        std::cout << "Input file name: " << ifs_name[0] << std::endl;
+        std::cout << "Output file name: " << ofs_name[0] << std::endl;
+        std::cout << "# of threads: " << thread_num << std::endl;
+        std::cout << "Is fastq: " << is_fastq << ", Is gz input: " << is_gz_input << ", Is bam: " << is_bam << std::endl;
+        std::cout << "Seed lengths: " << min_seed_len << "~" << max_seed_len << ", Max alignment: " << min_multi << ", No mismatch: " << no_mismatch << std::endl;
+        std::cout << "Prune factor: " << prune_factor << ", Sensitive mode: " << is_sensitive << std::endl;
+        std::cout << "Min length: " << min_length << ", UMI: " << estimate_umi_len << std::endl;
+        std::cout << "Default adapter: " << DEFAULT_ADAPTER1 << std::endl;
+        std::cout << std::noboolalpha;
+    }
+    catch (std::exception& e) 
+    {
+        std::cerr << "Error: " << e.what() << std::endl 
+            << opts << std::endl;
+        exit (1);
+    } 
+    catch (...) 
+    {
+        std::cerr << "Unknown error!" << std::endl 
+            << opts << std::endl;
+        exit (1);
+    }
+}
+
+void init_skewer(int argc, const char* argv[])
+{
+    std::string usage = R"(
+*********************************************************************************
++------+
+|Skewer|
++------+
+Single-end Skewer Special mode for adapter trimming. 
+EARRINGS will not detect the adapter and force trim with the user-provided
+adapter sequence via Skewer (default as sensitive mode).
+
+> EARRINGS skewer -1 input1.fa -a adapter_seq
+> EARRINGS skewer -1 input1.fq -a adapter_seq
+> EARRINGS skewer -1 input1.fq.gz -a adapter_seq
+*********************************************************************************
+    )";
+    
+    boost::program_options::options_description opts {usage};
+    try
+    {
+        opts.add_options ()
+        ("input1,1", 
+         boost::program_options::
+            value<std::string>(&ifs_name[0])->required(), 
+            "The file path of Single-End reads. (required)")
+        ("help,h", 
+            "Display help message and exit.")
+        ("output,o",
+         boost::program_options::
+            value<std::string>(&ofs_name[0])->default_value("trimmed_sk"),
+            "The file prefix of Single-End FastQ output.")
+        ("min_length,m",
+         boost::program_options::
+            value<size_t>()->default_value(0),
+            "Skip the read if the length of the read is less than --min_length after trimming.")
+        ("thread,t", 
+         boost::program_options::
+            value<size_t>()->default_value(1), 
+            "The number of threads used to run the program.")
+        ("adapter,a",
+         boost::program_options::
+            value<std::string>(&DEFAULT_ADAPTER1)->required(),
+            "Adapter squence for trimming.");
+
+        boost::program_options::variables_map vm;
+        boost::program_options::store (
+            boost::program_options::command_line_parser(
+            argc, argv
+            ).options(opts).allow_unregistered().run(), vm
+        );
+
+        boost::program_options::notify(vm);
+
+        if (vm.count("help"))
+        {
+            std::cout << usage << "\n";
+            exit(0);
+        }
+        
+        thread_num = vm["thread"].as<size_t>();
+        if (thread_num > 32) thread_num = 32;
+
+        is_sensitive = true;
+        min_length = vm["min_length"].as<size_t>();
+
+        std::string fa_ext(".fa"), fasta_ext(".fasta");
+        if (ifs_name[0].find(".gz") == ifs_name[0].size() - 3) {
+            is_gz_input = true;
+            fa_ext.append(".gz");
+            fasta_ext.append(".gz");
+        }
+        // if (ofs_name[0].find(".gz") == ofs_name[0].size() - 3)
+        //     is_gz_output = true;
+
+        if (ifs_name[0].find(".bam") == ifs_name[0].size() - 4) {
+            is_bam = true;
+            is_fastq = false;
+            fa_ext.append(".bam");
+            fasta_ext.append(".bam");
+        }
+        if (ifs_name[0].find(".ubam") == ifs_name[0].size() - 5) {
+            is_bam = true;
+            is_fastq = false;
+            fa_ext.append(".ubam");
+            fasta_ext.append(".ubam");
+        }
+        if (ifs_name[0].find("bam.gz") == ifs_name[0].size() - 6) {
+            std::cerr << "Error: Bam mode and gz mode are not compatible.\n";
+            exit(1);
+        }
+
+        if (is_bam || 
+            ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() || 
+            ifs_name[0].find( fasta_ext ) == ifs_name[0].length() - fasta_ext.length() )
+        {
+            ofs_name[0] += ".fasta";
+            is_fastq = false;
+        }
+        else
+            ofs_name[0] += ".fastq";
+
+        std::cout << std::boolalpha;
+        std::cout << "Input file name: " << ifs_name[0] << std::endl;
+        std::cout << "Output file name: " << ofs_name[0] << std::endl;
+        std::cout << "# of threads: " << thread_num << std::endl;
+        std::cout << "Is fastq: " << is_fastq << ", Is gz input: " << is_gz_input << ", Is bam: " << is_bam << std::endl;
+        std::cout << "Sensitive mode: " << is_sensitive << std::endl;
+        std::cout << "Min length: " << min_length << std::endl;
+        std::cout << "Trimming adapter: " << DEFAULT_ADAPTER1 << std::endl;
+        std::cout << std::noboolalpha;
+    }
+    catch (std::exception& e) 
+    {
+        std::cerr << "Error: " << e.what() << std::endl 
+            << opts << std::endl;
+        exit (1);
+    } 
+    catch (...) 
+    {
+        std::cerr << "Unknown error!" << std::endl 
+            << opts << std::endl;
+        exit (1);
+    }
+}

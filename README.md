@@ -10,7 +10,7 @@ Like PEAT, EARRING adapts [skewer](https://github.com/relipmoc/skewer) for singl
 
 ## Requirement
 
-- GNU [g++-8](https://gcc.gnu.org/gcc-8/) or higher (Gtest works with GNU [g++-8](https://gcc.gnu.org/gcc-8/) only )
+- GNU [g++-8](https://gcc.gnu.org/gcc-8/) only
 - cmake [3.10.0](https://cmake.org/download/) or higher to build EARRINGS
 - python [3.7](https://www.python.org/downloads/) or higher as well as [numpy](https://numpy.org/) and [pandas](https://pandas.pydata.org/) packages for the benchmarking
 
@@ -38,9 +38,21 @@ export CC=/Path/Locate/To/The/gcc-8
 export CXX=/Path/Locate/To/The/g++-8
 ```
 
+### **Note** Read Before Execution
+
+This note is written for Sinlge-End mode usage, include another two special mode smallRNA and skewer.
+
+# Residual of 5'end adapter
+
+The Adapter Trimmer is typically used to process the 3' end adapter, but in some datasets, we have observed remnants of the 5' end adapter. In Paired-End mode, it will automatically handle both 5' and 3' adapters through cross-comparison. However, in Single-End mode, accurately identifying the 3' end adapter may be challenging due to the presence of residual 5' end adapter. Therefore, when using Single-End mode, it is essential to verify whether there are remnants of the 5' end adapter. If so, address this issue before running EARRINGS.
+
+# TDMD as 3' end adapter
+
+When using the smallRNA mode, your reads are generally short and EARRINGS usually sets the seed length between 18-25. A short seed length significantly affects accurate adapter detection, especially when your data is rich in TDMD (Target-directed miRNA degradation). In TDMD, there may be a large amount of tailing in the small RNA reads that cannot be aligned on the genome, increasing the likelihood of being misjudged as part of the adapter. Therefore, different seed lengths alignments are performed to determine which adapter provides the best trimming result when using the smallRNA mode. However, not every dataset is ideal; thus it's important to confirm whether tails are being misjudged as adapters when processing small RNA. Failure to address this issue can lead to loss of TDMD information and biased results.
+
 ## Execution
 
-There are 3 modes to execute EARRINGS: **build**, **single**, and **paired**.
+There are 5 modes to execute EARRINGS: **build**, **single**, **paired**, **smallRNA** and **skewer**.
 
 Build mode generates an index for the source reference sequence (e.g., the entire genome, a chromosome, a collection of panel genes, [GreenGenes](http://greengenes.secondgenome.com/) for meta-genomics etc.) of the **single-end** reads. The index is **not** used for trimming paired-end reads.
 
@@ -73,8 +85,8 @@ In single-end mode, EARRINGS first detects adapter then feeds the detected adapt
 
 ```sh
 # ./EARRINGS single -p [index_prefix] -1 [input_file]
-> ./EARRINGS single -p path_to_index -1 ../test_data/has_adapter_1.fq
-> ./EARRINGS single -p path_to_index -1 ../test_data/has_adapter_1.fq.gz
+> ./EARRINGS single -p earrings_idx -1 input1.fq
+> ./EARRINGS single -p earrings_idx -1 input1.fq.gz
 ```
 
 Single-End mode parameters
@@ -120,8 +132,8 @@ Single-End mode parameters
 
 ```sh
 # ./EARRINGS paired -1 [input1] -2 [input2]
-> ./EARRINGS paired -1 ../test_data/has_adapter_1.fq -2 ../test_data/has_adapter_2.fq
-> ./EARRINGS paired -1 ../test_data/has_adapter_1.fq.gz -2 ../test_data/has_adapter_2.fq.gz
+> ./EARRINGS paired -1 input1.fq -2 input2.fq
+> ./EARRINGS paired -1 input1.fq.gz -2 input2.fq.gz
 ```
 
 Paired-end mode parameters
@@ -160,6 +172,81 @@ Paired-end mode parameters
     Alternative adapter 1 if auto-detect mechanism fails.
     - -A [ --adapter2 ] arg (=AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTA)</br>
     Alternative adapter 2 if auto-detect mechanism fails.
+
+### **Small-RNA**
+
+In the special small RNA single-end mode, EARRINGS first detects the adapter by trying different seed lengths and then feeds the detected adapter to skewer (default as sensitive mode).
+
+```sh
+# ./EARRINGS smallRNA -p [index_prefix] -1 [input_file]
+> ./EARRINGS smallRNA -p earrings_idx -1 input1.fq
+> ./EARRINGS smallRNA -p earrings_idx -1 input1.fq.gz
+```
+Special Small-RNA Single-End mode parameters
+
+- Required
+  - -p [ --index_prefix ] arg</br>
+  The index prefix for pre-built index table.
+  - -1 [ --input1 ] arg</br>
+  The file path of Single-End reads.
+- Optional
+  - Utils
+    - -h [ --help ]</br>
+    Display help message and exit.
+    - -t [ --thread ] arg (=1)</br>
+    The number of threads used to run the program.
+  - Input / Output
+    - -o [ --output ] arg (=trimmed_se)</br>
+    The file prefix of Single-End FastQ output.
+  - Extract seeds / Alignment
+    - -s [ --min_seed_len ] arg (=21)</br>
+    Use the same parameters as ***--seed_len*** in Single-End mode, but set the minimum seed length for the range to try different seed lengths to detect adapters for small RNA reads.</br>
+    It's recommended to set this from 18 to 25 for very short reads like **miRNA**.
+    - -d [ --max_seed_len ] arg (=25)</br>
+    Use the same parameters as ***--seed_len*** in Single-End mode, but set the maximum seed length for the range to try different seed lengths to detect adapters for small RNA reads.</br>
+    It's recommended to set this from 18 to 25 for very short reads like **miRNA**.
+    - -e [ --no_mismatch ]</br>
+    By default, EARRINGS can tolerate 1 error base at most if be set as true, this flag can disable this mismatch toleration mechenism.
+    - -M [ --max_align ] arg (=0)</br>
+    Maximum number of candidates used in seed finding stage, 0 means unlimited.
+  - Trimming
+    - -m [ --min_length ] arg (=0)</br>
+    Skip the read if the length of the read is less than ***--min_length*** after trimming.
+  - Adapter setting
+    - -a [ --adapter1 ] arg (=AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)</br>
+    Alternative adapter if auto-detect mechanism fails.
+    - -u [ --UMI ]</br>
+    Estimate the size of UMI sequences, results will be printed to console by default.
+
+### **Skewer**
+
+In the special Skewer single-end mode, EARRINGS will not automatically detect any adapter. It will only use the user-provided adapter for trimming via Skewer (default as sensitive mode).
+
+```sh
+# ./EARRINGS skewer -p [index_prefix] -1 [input_file]
+> ./EARRINGS skewer -1 input1.fq -a adapter_seq
+> ./EARRINGS skewer -1 input1.fq.gz -a adapter_seq
+```
+
+Special Skewer Single-End mode parameters
+
+- Required
+  - -1 [ --input1 ] arg</br>
+  The file path of Single-End reads.
+  - -a [ --adapter ] arg (=AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)</br>
+  Adapter squence for trimming.
+- Optional
+  - Utils
+    - -h [ --help ]</br>
+    Display help message and exit.
+    - -t [ --thread ] arg (=1)</br>
+    The number of threads used to run the program.
+  - Input / Output
+    - -o [ --output ] arg (=trimmed_se)</br>
+    The file prefix of Single-End FastQ output.
+  - Trimming
+    - -m [ --min_length ] arg (=0)</br>
+    Skip the read if the length of the read is less than ***--min_length*** after trimming.
 
 ## Run Simulation
 
