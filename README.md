@@ -10,7 +10,7 @@ Like PEAT, EARRING adapts [skewer](https://github.com/relipmoc/skewer) for singl
 
 ## Requirement
 
-- GNU [g++-8](https://gcc.gnu.org/gcc-8/) only
+- GNU [g++-8](https://gcc.gnu.org/gcc-8/) or higher (Gtest works with GNU [g++-8](https://gcc.gnu.org/gcc-8/) only )
 - cmake [3.10.0](https://cmake.org/download/) or higher to build EARRINGS
 - python [3.7](https://www.python.org/downloads/) or higher as well as [numpy](https://numpy.org/) and [pandas](https://pandas.pydata.org/) packages for the benchmarking
 

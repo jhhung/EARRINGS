@@ -7,8 +7,12 @@ endif()
 
 # hunter_config(
 #     Boost
-#     VERSION "1.64.0"
+#     VERSION "1.75.0"
 # )
+hunter_config(
+    range-v3
+    VERSION "0.3.0-p"
+)
 hunter_config(
     GTest
     VERSION ${HUNTER_GTest_VERSION}
