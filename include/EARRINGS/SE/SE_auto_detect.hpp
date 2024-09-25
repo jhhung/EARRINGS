@@ -143,13 +143,13 @@ std::pair<std::string, bool> seat_adapter_auto_detect(
     std::pair<std::string, bool> adapter_info;
     if (is_sensitive)
     {
-        adapter_info = assemble_adapters<true>(tails, 10, 5);
+        adapter_info = assemble_adapters<true>(tails, init_kmer_size, 5);
     }
     else
     {
-        adapter_info = assemble_adapters<false>(tails, 10, 3);
+        adapter_info = assemble_adapters<false>(tails, init_kmer_size, 3);
     }
-    adapter = std::get<0>(adapter_info);    
+    adapter = std::get<0>(adapter_info);
 
     if (adapter == "")
     {

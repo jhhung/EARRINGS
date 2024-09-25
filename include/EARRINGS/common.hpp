@@ -25,6 +25,8 @@ size_t min_multi(0);
 float prune_factor(0.1);
 bool no_mismatch(false);
 bool estimate_umi_len(false);
+size_t init_kmer_size(10);
+size_t kmer_step(5);
 
 // for PE
 size_t thread_num(1);

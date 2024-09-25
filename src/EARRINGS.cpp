@@ -386,11 +386,11 @@ Skewer with adapter parameters passed by EARRINGS automatically.
          boost::program_options::
             value<std::string>()->required(),
             "The index prefix for pre-built index table. (required)")
-        ("input1,1", 
+        ("input1,1",
          boost::program_options::
             value<std::string>(&ifs_name[0])->required(), 
             "The file path of Single-End reads. (required)")
-        ("help,h", 
+        ("help,h",
             "Display help message and exit.")
         ("seed_len,d",
          boost::program_options::
@@ -408,7 +408,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
          boost::program_options::
             value<size_t>()->default_value(0),
             "Skip the read if the length of the read is less than --min_length after trimming.")
-        ("thread,t", 
+        ("thread,t",
          boost::program_options::
             value<size_t>()->default_value(1), 
             "The number of threads used to run the program.")
@@ -430,13 +430,21 @@ Skewer with adapter parameters passed by EARRINGS automatically.
          boost::program_options::
             value<std::string>(&DEFAULT_ADAPTER1)->default_value(DEFAULT_ADAPTER1),
             "Alternative adapter if auto-detect mechanism fails.")
-        ("sensitive", 
+        ("sensitive",
             "By default, minimum number of kmers must exceed 10 during assembly adapters. "
             "However, if user have confidence that the dataset contains adapters, sensitive "
             "mode would be more suitable.\n"
             "Under sensitive mode, minimum number of kmers (--prune_factor) would not be "
             "restricted.")
-        ("UMI,u", 
+        ("init_kmer_size,k",
+         boost::program_options::
+             value<size_t>()->default_value(10),
+             "The initial size of kmer.")
+        ("kmer_step,s",
+         boost::program_options::
+             value<size_t>()->default_value(5),
+             "The step size for incresing kmer.")
+        ("UMI,u",
             "Estimate the size of UMI sequences, results will be printed to console by "
             "default.");
 
@@ -493,9 +501,20 @@ Skewer with adapter parameters passed by EARRINGS automatically.
                 prune_factor = 0.03;
             }
         }
+
         if (vm.count("sensitive"))
         {
             is_sensitive = true;
+        }
+
+        if (vm.count("init_kmer_size"))
+        {
+            init_kmer_size = vm["init_kmer_size"].as<size_t>();
+        }
+
+        if (vm.count("kmer_step"))
+        {
+            kmer_step = vm["kmer_step"].as<size_t>();
         }
 
         if (vm.count("UMI"))

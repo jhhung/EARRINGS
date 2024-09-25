@@ -9,6 +9,7 @@
 #include <map>
 #include <iostream>
 #include <fstream>
+#include <EARRINGS/common.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include <boost/graph/depth_first_search.hpp>
 #include <boost/graph/filtered_graph.hpp>
@@ -72,8 +73,8 @@ public:
         return dup_kmers;
     }
 
-    GraphWrapper(size_t kmer_size = 10): kmer_size(kmer_size) {}
-    size_t get_kmer_size() { return kmer_size;  }
+    GraphWrapper(size_t kmer_size = init_kmer_size): kmer_size(kmer_size) {}
+    size_t get_kmer_size() { return kmer_size; }
 // private:
     Graph g;
     std::vector<Path> paths;

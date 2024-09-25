@@ -262,16 +262,16 @@ void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::detect_adapters()
     bool is_low_complexity = false;
     if (_is_sensitive)
     {
-        auto ret1 = assemble_adapters<true>(adapter_frags[0], 10, 5);
-        auto ret2 = assemble_adapters<true>(adapter_frags[1], 10, 5);
+        auto ret1 = assemble_adapters<true>(adapter_frags[0], init_kmer_size, 5);
+        auto ret2 = assemble_adapters<true>(adapter_frags[1], init_kmer_size, 5);
         is_low_complexity = std::get<1>(ret1) || std::get<1>(ret2);
         tmp1 = std::get<0>(ret1);
         tmp2 = std::get<0>(ret2);
     }
     else
     {
-        auto ret1 = assemble_adapters<false>(adapter_frags[0], 10, 3);
-        auto ret2 = assemble_adapters<false>(adapter_frags[1], 10, 3);
+        auto ret1 = assemble_adapters<false>(adapter_frags[0], init_kmer_size, 3);
+        auto ret2 = assemble_adapters<false>(adapter_frags[1], init_kmer_size, 3);
         is_low_complexity = std::get<1>(ret1) || std::get<1>(ret2);
         tmp1 = std::get<0>(ret1);
         tmp2 = std::get<0>(ret2);

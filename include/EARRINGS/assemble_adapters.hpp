@@ -81,7 +81,7 @@ size_t estimate_umi_size(const std::vector<std::string>& tails,
 template<bool IS_SENSITIVE>
 std::pair<std::string, bool> assemble_adapters(
         std::vector<std::string>& tails, 
-        const size_t kmer_size = 10,
+        const size_t kmer_size = init_kmer_size,
         const size_t max_try = 3)
 {
 	std::vector<std::string> adapters;
@@ -127,7 +127,7 @@ std::pair<std::string, bool> assemble_adapters(
             return std::make_pair("", false);
         }
 
-        return assemble_adapters<IS_SENSITIVE>(original_tails, kmer_size + 5, max_try);
+        return assemble_adapters<IS_SENSITIVE>(original_tails, kmer_size + kmer_step, max_try);
     }
     
     // increase k-mer when low complexity adapters are assembled
@@ -139,7 +139,7 @@ std::pair<std::string, bool> assemble_adapters(
         }
         else
         {
-            auto tmp_adapter = std::get<0>(assemble_adapters<IS_SENSITIVE>(original_tails, kmer_size + 5, max_try));
+            auto tmp_adapter = std::get<0>(assemble_adapters<IS_SENSITIVE>(original_tails, kmer_size + kmer_step, max_try));
             if (tmp_adapter.empty())
             {
                 return std::make_pair(adapters[0], true);
