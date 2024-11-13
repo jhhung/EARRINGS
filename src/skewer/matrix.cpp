@@ -143,7 +143,7 @@ const double EPSILON = (MIN_PENALTY / 10);
 
 bool cElementSet::insert (const ELEMENT& val)
 {
-	pair<ELEMENT_SET::iterator,bool> ret;
+	std::pair<ELEMENT_SET::iterator,bool> ret;
 	ELEMENT_SET::iterator it = this->find(val);
 	if(it == this->end()){
 		ret = ELEMENT_SET::insert(val);
@@ -221,7 +221,7 @@ void cAdapter::Init2(char * seq, size_t sLen)
 	}
 }
 
-inline void cAdapter::UPDATE_COLUMN(deque<ELEMENT> & queue, uint64 &d0bits, uint64 &lbits, uint64 &unbits, uint64 &dnbits, double &penal, double &dMaxPenalty, int &iMaxIndel)
+inline void cAdapter::UPDATE_COLUMN(std::deque<ELEMENT> & queue, uint64 &d0bits, uint64 &lbits, uint64 &unbits, uint64 &dnbits, double &penal, double &dMaxPenalty, int &iMaxIndel)
 {
 	int i;
 	double score;
@@ -303,7 +303,7 @@ bool cAdapter::align(char * read, size_t rLen, uchar * qual, size_t qLen, cEleme
 	int minK = bBestAlign ? ((cMatrix::iMinOverlap >= (int)(len - iMaxIndel + 1)) ? (int)(len - iMaxIndel + 1) : cMatrix::iMinOverlap) : 1;
 	double dMu = (bc >= 0) ? cMatrix::dMu : MIN_PENALTY;
 
-	deque<ELEMENT> queue;
+	std::deque<ELEMENT> queue;
 	ELEMENT element;
 	double score;
 	uint64 legalBits = 0;
@@ -456,20 +456,20 @@ void cAdapter::initBarcode(int iCut)
 	primer[k] = '\0';
 }
 
-deque<cAdapter> cMatrix::firstAdapters;
-deque<cAdapter> cMatrix::secondAdapters;
-deque<cAdapter> cMatrix::junctionAdapters;
-vector<int> cMatrix::junctionLengths;
-vector< vector<int> > cMatrix::indices;
+std::deque<cAdapter> cMatrix::firstAdapters;
+std::deque<cAdapter> cMatrix::secondAdapters;
+std::deque<cAdapter> cMatrix::junctionAdapters;
+std::vector<int> cMatrix::junctionLengths;
+std::vector< std::vector<int> > cMatrix::indices;
 int cMatrix::iIdxCnt = 0;
-vector<bool *> cMatrix::fw_masked;
-vector<bool *> cMatrix::rv_masked;
-vector<string> cMatrix::fw_barcodes;
-vector<string> cMatrix::rv_barcodes;
-vector<string> cMatrix::fw_primers;
-vector<string> cMatrix::rv_primers;
-vector<int> cMatrix::rowBc;
-vector<int> cMatrix::colBc;
+std::vector<bool *> cMatrix::fw_masked;
+std::vector<bool *> cMatrix::rv_masked;
+std::vector<std::string> cMatrix::fw_barcodes;
+std::vector<std::string> cMatrix::rv_barcodes;
+std::vector<std::string> cMatrix::fw_primers;
+std::vector<std::string> cMatrix::rv_primers;
+std::vector<int> cMatrix::rowBc;
+std::vector<int> cMatrix::colBc;
 bool cMatrix::bShareAdapter = false;
 double cMatrix::dEpsilon = 0.15;
 double cMatrix::dEpsilonIndel = 0.03;
@@ -527,17 +527,17 @@ bool cMatrix::CalcRevCompScore(char * seq, char * seq2, int len, uchar * qual, u
 	return true;
 }
 
-string cMatrix::GetRevComp(char * seq, int len)
+std::string cMatrix::GetRevComp(char * seq, int len)
 {
 	char sequence[MAX_ADAPTER_LEN+1];
 	if(len > MAX_ADAPTER_LEN){
 		seq += (len - MAX_ADAPTER_LEN);
 		len = MAX_ADAPTER_LEN;
 	}
-    for(int i=0; i<int(len); i++) 
+    for(int i=0; i<int(len); i++)
         sequence[i] = character[complement[codeMap[uchar(seq[len-1-i])]]];
     sequence[len] = '\0';
-	return string(sequence);
+	return std::string(sequence);
 }
 
 //// public functions
@@ -567,7 +567,7 @@ void cMatrix::InitParameters(enum TRIM_MODE trimMode, double dEpsilon, double dE
 	cMatrix::junctionAdapters.clear();
 }
 
-void cMatrix::AddAdapter(deque<cAdapter> & adapters, char * vector, size_t len, TRIM_MODE trimMode)
+void cMatrix::AddAdapter(std::deque<cAdapter> & adapters, char * vector, size_t len, TRIM_MODE trimMode)
 {
 	cAdapter adapter;
 	adapter.Init(vector, len, trimMode);
@@ -576,19 +576,19 @@ void cMatrix::AddAdapter(deque<cAdapter> & adapters, char * vector, size_t len, 
 
 void cMatrix::CalculateJunctionLengths()
 {
-	deque<cAdapter>::iterator it_adapter;
+	std::deque<cAdapter>::iterator it_adapter;
 	junctionLengths.push_back(0);
 	for(it_adapter=junctionAdapters.begin(); it_adapter!=junctionAdapters.end(); it_adapter++){
 		junctionLengths.push_back((*it_adapter).len);
 	}
 }
 
-void cMatrix::CalculateIndices(vector< vector<bool> > &bMatrix, int nRow, int nCol)
+void cMatrix::CalculateIndices(std::vector< std::vector<bool> > &bMatrix, int nRow, int nCol)
 {
 	int i, j;
 	rowBc.clear();
 	colBc.clear();
-	indices.resize(nRow, vector<int>(nCol, -1));
+	indices.resize(nRow, std::vector<int>(nCol, -1));
 	iIdxCnt = 0;
 	for(i=0; i<nRow; i++){
 		for(j=0; j<nCol; j++){
@@ -601,29 +601,29 @@ void cMatrix::CalculateIndices(vector< vector<bool> > &bMatrix, int nRow, int nC
 	}
 }
 
-void cMatrix::InitBarcodes(deque<cAdapter> & fw_adapters, int iCutF, deque<cAdapter> & rv_adapters, int iCutR)
+void cMatrix::InitBarcodes(std::deque<cAdapter> & fw_adapters, int iCutF, std::deque<cAdapter> & rv_adapters, int iCutR)
 {
-	deque<cAdapter>::iterator it_adapter;
+	std::deque<cAdapter>::iterator it_adapter;
 	cAdapter * pAdapter;
 	fw_masked.clear(); fw_masked.push_back(NULL);
-	fw_barcodes.clear(); fw_barcodes.push_back(string(""));
-	fw_primers.clear(); fw_primers.push_back(string(""));
+	fw_barcodes.clear(); fw_barcodes.push_back(std::string(""));
+	fw_primers.clear(); fw_primers.push_back(std::string(""));
 	for(it_adapter=fw_adapters.begin(); it_adapter!=fw_adapters.end(); it_adapter++){
 		pAdapter = &(*it_adapter);
 		pAdapter->initBarcode(iCutF);
 		fw_masked.push_back(pAdapter->getMasked());
-		fw_barcodes.push_back(string(pAdapter->getBarcode()));
-		fw_primers.push_back(string(pAdapter->getPrimer()));
+		fw_barcodes.push_back(std::string(pAdapter->getBarcode()));
+		fw_primers.push_back(std::string(pAdapter->getPrimer()));
 	}
 	rv_masked.clear(); rv_masked.push_back(NULL);
-	rv_barcodes.clear(); rv_barcodes.push_back(string(""));
-	rv_primers.clear(); rv_primers.push_back(string(""));
+	rv_barcodes.clear(); rv_barcodes.push_back(std::string(""));
+	rv_primers.clear(); rv_primers.push_back(std::string(""));
 	for(it_adapter=rv_adapters.begin(); it_adapter!=rv_adapters.end(); it_adapter++){
 		pAdapter = &(*it_adapter);
 		pAdapter->initBarcode(iCutR);
 		rv_masked.push_back(pAdapter->getMasked());
-		rv_barcodes.push_back(string(pAdapter->getBarcode()));
-		rv_primers.push_back(string(pAdapter->getPrimer()));
+		rv_barcodes.push_back(std::string(pAdapter->getBarcode()));
+		rv_primers.push_back(std::string(pAdapter->getPrimer()));
 	}
 }
 
@@ -649,7 +649,7 @@ bool cMatrix::checkQualities(uchar * quals, size_t len, int minQual)
 	int total = 0;
 	for(u=0; u<len; u++){
 		total += quals[u];
-	}   
+	}
 	return (double(total) / len) >= minQual;
 }
 
@@ -665,7 +665,7 @@ int cMatrix::trimByQuality(uchar * quals, size_t len, int minQual)
 
 INDEX cMatrix::findAdapter(char * read, size_t rLen, uchar * qual, size_t qLen)
 {
-	deque<cAdapter>::iterator it_adapter;
+	std::deque<cAdapter>::iterator it_adapter;
 	cAdapter * pAdapter;
 	cElementSet result;
 	double maxScore = -1;
@@ -687,7 +687,7 @@ INDEX cMatrix::findAdapter(char * read, size_t rLen, uchar * qual, size_t qLen)
 
 INDEX cMatrix::findAdapter2(char * read, size_t rLen, uchar * qual, size_t qLen)
 {
-	deque<cAdapter>::iterator it_adapter;
+	std::deque<cAdapter>::iterator it_adapter;
 	cAdapter * pAdapter;
 	cElementSet result;
 	double maxScore = -1;
@@ -695,7 +695,7 @@ INDEX cMatrix::findAdapter2(char * read, size_t rLen, uchar * qual, size_t qLen)
 	index.pos = int(rLen);
 	index.bc = 0;
 	int i;
-	deque<cAdapter> *pAdapters = (bShareAdapter ? &firstAdapters : &secondAdapters);
+	std::deque<cAdapter> *pAdapters = (bShareAdapter ? &firstAdapters : &secondAdapters);
 	for(i=0,it_adapter=pAdapters->begin(); it_adapter!=pAdapters->end(); it_adapter++,i++){
 		pAdapter = &(*it_adapter);
 		if(pAdapter->align(read, rLen, qual, qLen, result, i)){
@@ -710,7 +710,7 @@ INDEX cMatrix::findAdapter2(char * read, size_t rLen, uchar * qual, size_t qLen)
 
 INDEX cMatrix::findJuncAdapter(char * read, size_t rLen, uchar * qual, size_t qLen)
 {
-	deque<cAdapter>::iterator it_adapter;
+	std::deque<cAdapter>::iterator it_adapter;
 	cAdapter * pAdapter;
 	cElementSet result;
 	double maxScore = -1;
@@ -732,7 +732,7 @@ INDEX cMatrix::findJuncAdapter(char * read, size_t rLen, uchar * qual, size_t qL
 
 bool cMatrix::findAdapterWithPE(char * read, char * read2, size_t rLen, size_t rLen2, uchar * qual, uchar * qual2, size_t qLen, size_t qLen2, INDEX &index, INDEX &index2)
 {
-	deque<cAdapter>::iterator it_adapter;
+	std::deque<cAdapter>::iterator it_adapter;
 	cAdapter * pAdapter;
 	cElementSet result, result2;
 	index.pos = int(rLen);
@@ -744,7 +744,7 @@ bool cMatrix::findAdapterWithPE(char * read, char * read2, size_t rLen, size_t r
 		pAdapter = &(*it_adapter);
 		pAdapter->align(read, rLen, qual, qLen, result, i, false);
 	}
-	deque<cAdapter> *pAdapters = (bShareAdapter ? &firstAdapters : &secondAdapters);
+	std::deque<cAdapter> *pAdapters = (bShareAdapter ? &firstAdapters : &secondAdapters);
 	for(i=0,it_adapter=pAdapters->begin(); it_adapter!=pAdapters->end(); it_adapter++,i++){
 		pAdapter = &(*it_adapter);
 		pAdapter->align(read2, rLen2, qual2, qLen2, result2, i, false);
@@ -863,7 +863,7 @@ bool cMatrix::findAdapterWithPE(char * read, char * read2, size_t rLen, size_t r
 // -1: no match
 int cMatrix::findAdaptersInARead(char * read, size_t rLen, uchar * qual, size_t qLen, INDEX &index)
 {
-	deque<cAdapter>::iterator it_adapter;
+	std::deque<cAdapter>::iterator it_adapter;
 	cAdapter * pAdapter;
 	cElementSet result;
 	index.pos = int(rLen);
@@ -872,7 +872,7 @@ int cMatrix::findAdaptersInARead(char * read, size_t rLen, uchar * qual, size_t 
 	size_t nLen;
 	double maxScore = -1;
 	int flag = 0;
-	deque<ELEMENT>::iterator it_element, it_element2;
+	std::deque<ELEMENT>::iterator it_element, it_element2;
 	for(i=0,it_adapter=firstAdapters.begin(); it_adapter!=firstAdapters.end(); it_adapter++,i++){
 		pAdapter = &(*it_adapter);
 		nLen = (pAdapter->len < rLen ? pAdapter->len : rLen);
@@ -909,15 +909,15 @@ int cMatrix::findAdaptersBidirectionally(char * read, size_t rLen, uchar * qual,
 char * read2, size_t rLen2, uchar * qual2, size_t qLen2, INDEX &index, INDEX &index2)
 {
 	int bc = -1;
-	deque<cAdapter>::iterator it_adapter;
+	std::deque<cAdapter>::iterator it_adapter;
 	cAdapter * pAdapter;
 	cElementSet result;
-	deque<ELEMENT> result1, result2, result3, result4;
+	std::deque<ELEMENT> result1, result2, result3, result4;
 	index.pos = index2.pos = int(rLen);
 	index.bc = index2.bc = 0;
 	int i;
 	size_t nLen;
-	deque<ELEMENT>::iterator it_element, it_element2;
+	std::deque<ELEMENT>::iterator it_element, it_element2;
 	for(i=0,it_adapter=firstAdapters.begin(); it_adapter!=firstAdapters.end(); it_adapter++,i++){
 		pAdapter = &(*it_adapter);
 		nLen = (pAdapter->len < rLen ? pAdapter->len : rLen);

@@ -65,38 +65,38 @@ private:
 
 public:
 	const char * version;
-	string x_str;
-	string y_str;
-	string m_str;
-	string j_str;
-	vector<string> adapters;
-	vector<string> adapters2;
-	vector< vector<bool> > bMatrix;
-	vector<string> rowNames;
-	vector<string> colNames;
-	vector<string> juncAdapters;
+	std::string x_str;
+	std::string y_str;
+	std::string m_str;
+	std::string j_str;
+	std::vector<std::string> adapters;
+	std::vector<std::string> adapters2;
+	std::vector< std::vector<bool> > bMatrix;
+	std::vector<std::string> rowNames;
+	std::vector<std::string> colNames;
+	std::vector<std::string> juncAdapters;
 	char * input[2];
 	// These are the output fastq files for the
 	// trimmed reads that pass filters
-	vector<string> output;
-	vector<string> output2;
+	std::vector<std::string> output;
+	std::vector<std::string> output2;
 	// These are the output fastq files for only
 	// the reads that passed filters AND were trimmed.
 	// The full reads appear in the file with the
 	// trimmed bases in lower case rather than removed.
-	vector<string> masked;
-	vector<string> masked2;
+	std::vector<std::string> masked;
+	std::vector<std::string> masked2;
 	bool bWriteMasked;
 	// These files contain the reads that were excluded
 	// from the output because they failed filters.
-	vector<string> excluded;
-	vector<string> excluded2;
+	std::vector<std::string> excluded;
+	std::vector<std::string> excluded2;
 	bool bWriteExcluded;
-	vector<string> barcodeNames;
-	string barcodes;
-	string mapfile;
-	string untrimmed;
-	string untrimmed2;
+	std::vector<std::string> barcodeNames;
+	std::string barcodes;
+	std::string mapfile;
+	std::string untrimmed;
+	std::string untrimmed2;
 	char logfile[MAX_PATH+1+100];
 	const char * pDecorate;
 	TRIM_MODE trimMode;
@@ -127,7 +127,7 @@ private:
 	char * occOfLastDot(char * str);
 	bool IsDirectorySpecified (char * str);
 	int ReadMatrix(const char * fileName);
-	int ReadFasta(const char * fileName, vector<string> & sequences);
+	int ReadFasta(const char * fileName, std::vector<std::string> & sequences);
 
 public:
 	cParameter();

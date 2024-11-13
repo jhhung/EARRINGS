@@ -44,8 +44,6 @@
 #include "parameter.h"
 #include "matrix.h"
 
-using namespace std;
-
 namespace skewer{ 
 inline void OutputTaggedRecord(FILE * fpOut, RECORD * pRecord)
 {
@@ -85,11 +83,11 @@ inline void OutputEntireRecord(FILE * fpOut, RECORD * pRecord)
 inline void OutputEntireRecordFilledWithNs(FILE * fpOut, RECORD * pRecord, int offset, int len)
 {
 	int len2 = pRecord->seq.n - offset - len;
-	string s1 = string(offset, 'N');
-	string s2 = string(len2, 'N');
+	std::string s1 = std::string(offset, 'N');
+	std::string s2 = std::string(len2, 'N');
 	if(pRecord->com.n > 0){ // fastq
-		string q1 = string(offset, '!');
-		string q2 = string(len2, '!');
+		std::string q1 = std::string(offset, '!');
+		std::string q2 = std::string(len2, '!');
 		fprintf(fpOut, "@%s%s%.*s%s\n+\n%s%.*s%s\n", pRecord->id.s, s1.c_str(), len, pRecord->seq.s + offset, s2.c_str(),
 				q1.c_str(), len,  pRecord->qual.s + offset, q2.c_str());
 	}
@@ -118,7 +116,7 @@ private:
 	size_t nBarcodes;
 	long * pHist;
 	long * pBarcode;
-	vector<string> * pBarcodeNames;
+	std::vector<std::string> * pBarcodeNames;
 	const char * pDecorate;
 
 public:
@@ -567,7 +565,7 @@ public:
 		}
 		int i, bc, bc2;
 		fprintf(fpMapfile.fp, "#SampleID\tBarcodeSequence\tLinkerPrimerSequence\tReversePrimer\tDescription\n");
-		string sampleId, barcode, fw_primer, rv_primer;
+		std::string sampleId, barcode, fw_primer, rv_primer;
 		for(i=0; i<cMatrix::iIdxCnt; i++){
 			bc = cMatrix::rowBc[i];
 			bc2 = cMatrix::colBc[i];
@@ -836,7 +834,7 @@ public:
 		}
 		cMatrix::InitParameters(pParameter->trimMode, pParameter->epsilon, pParameter->delta, pParameter->baseQual, pParameter->bShareAdapter, pParameter->bIsLowComplexity);
 		cMatrix::iMinOverlap = pParameter->minK;
-		vector<string> *pAdapters;
+		std::vector<std::string> *pAdapters;
 		TRIM_MODE trimMode = ((pParameter->trimMode & TRIM_ANY) == TRIM_DEFAULT) ? TRIM_TAIL : TRIM_MODE(pParameter->trimMode & TRIM_ANY);
 		pAdapters = &pParameter->adapters;
 		for(i=0; i<int(pAdapters->size()); i++){

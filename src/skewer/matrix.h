@@ -38,8 +38,6 @@
 #include <string>
 #include "common.h"
 
-using namespace std;
-
 typedef struct{
 	double score;
 	int nIndel;
@@ -54,7 +52,7 @@ public:
 	}
 };
 
-typedef set<ELEMENT, ElementComparator> ELEMENT_SET;
+typedef std::set<ELEMENT, ElementComparator> ELEMENT_SET;
 
 class cElementSet : public ELEMENT_SET
 {
@@ -89,7 +87,7 @@ class cAdapter
 	char barcode[MAX_ADAPTER_LEN+1];
 	char primer[MAX_ADAPTER_LEN+1];
 	bool masked[MAX_ADAPTER_LEN+1];
-	inline void UPDATE_COLUMN(deque<ELEMENT> & queue, uint64 &d0bits, uint64 &lbits, uint64 &unbits, uint64 &dnbits, double &penal, double &dMaxPenalty, int &iMaxIndel);
+	inline void UPDATE_COLUMN(std::deque<ELEMENT> & queue, uint64 &d0bits, uint64 &lbits, uint64 &unbits, uint64 &dnbits, double &penal, double &dMaxPenalty, int &iMaxIndel);
 
 public:
 	size_t len;
@@ -128,22 +126,22 @@ class cMatrix
     static bool bIsLowComplexity;
 
 public:
-	static vector<bool *> fw_masked;
-	static vector<bool *> rv_masked;
-	static vector<string> fw_barcodes;
-	static vector<string> rv_barcodes;
-	static vector<string> fw_primers;
-	static vector<string> rv_primers;
-	static vector<int> rowBc;
-	static vector<int> colBc;
+	static std::vector<bool *> fw_masked;
+	static std::vector<bool *> rv_masked;
+	static std::vector<std::string> fw_barcodes;
+	static std::vector<std::string> rv_barcodes;
+	static std::vector<std::string> fw_primers;
+	static std::vector<std::string> rv_primers;
+	static std::vector<int> rowBc;
+	static std::vector<int> colBc;
 
 public:
-	static deque<cAdapter> firstAdapters;
-	static deque<cAdapter> secondAdapters;
-	static deque<cAdapter> junctionAdapters;
+	static std::deque<cAdapter> firstAdapters;
+	static std::deque<cAdapter> secondAdapters;
+	static std::deque<cAdapter> junctionAdapters;
 
-	static vector<int> junctionLengths;
-	static vector< vector<int> > indices;
+	static std::vector<int> junctionLengths;
+	static std::vector< std::vector<int> > indices;
 	static int iIdxCnt;
 	static int iMinOverlap;
 
@@ -153,14 +151,14 @@ public:
 
 private:
 	static bool CalcRevCompScore(char * seq, char * seq2, int len, uchar * qual, uchar * qual2, size_t qLen, double &score);
-	static string GetRevComp(char * seq, int len);
+	static std::string GetRevComp(char * seq, int len);
 
 public:
 	static void InitParameters(enum TRIM_MODE trimMode, double dEpsilon, double dEpsilonIndel, int baseQual, bool bShareAdapter, bool bIsLowComplexity);
-	static void AddAdapter(deque<cAdapter> & adapters, char * vector, size_t len, TRIM_MODE trimMode);
+	static void AddAdapter(std::deque<cAdapter> & adapters, char * vector, size_t len, TRIM_MODE trimMode);
 	static void CalculateJunctionLengths();
-	static void CalculateIndices(vector< vector<bool> > &bMatrix, int nRow, int nCol);
-	static void InitBarcodes(deque<cAdapter> & fw_primers, int iCutF, deque<cAdapter> & rv_primers, int iCutR);
+	static void CalculateIndices(std::vector< std::vector<bool> > &bMatrix, int nRow, int nCol);
+	static void InitBarcodes(std::deque<cAdapter> & fw_primers, int iCutF, std::deque<cAdapter> & rv_primers, int iCutR);
 
 	static bool isBlurry(char * seq, size_t len);
 	static bool checkQualities(uchar * quals, size_t len, int minQual);
