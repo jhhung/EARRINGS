@@ -9,14 +9,14 @@
 #include <Nucleona/concept/core.hpp>
 #include <Nucleona/concept/same.hpp>
 namespace nucleona {
-namespace concept {
+namespace concept_ {
 /**
  * @brief Check input type is a iterator or not
  */
 struct Iterator
 {
     template<class T>
-    auto requires( T o ) NUCLEONA_EXPRS(
+    auto requires_( T o ) NUCLEONA_EXPRS(
           is_true<  std::is_copy_constructible<T>::value    >
         , is_true<  std::is_copy_assignable<T>::value       >
         , is_true<  std::is_destructible<T>::value          >
@@ -27,7 +27,7 @@ struct Iterator
         , std::declval< typename std::iterator_traits<std::decay_t<T>>::pointer >()
         , std::declval< typename std::iterator_traits<std::decay_t<T>>::iterator_category >()
         , *o
-        , requires<Same>( ++o, std::declval<T&>() )
+        , requires_<Same>( ++o, std::declval<T&>() )
     );
 };
 /**
@@ -36,14 +36,14 @@ struct Iterator
 struct InputIterator
 {
     template < class T >
-    auto requires ( T i ) NUCLEONA_EXPRS (
-        nucleona::concept::requires< nucleona::concept::StaticCastable > ( i != i, bool{} ),
-        nucleona::concept::requires< nucleona::concept::StaticCastable > ( i == i, bool{} ), *i,
-        nucleona::concept::requires< Same > (
+    auto requires_ ( T i ) NUCLEONA_EXPRS (
+        nucleona::concept_::requires_< nucleona::concept_::StaticCastable > ( i != i, bool{} ),
+        nucleona::concept_::requires_< nucleona::concept_::StaticCastable > ( i == i, bool{} ), *i,
+        nucleona::concept_::requires_< Same > (
             i.operator-> (), std::declval< typename std::iterator_traits<
                                  std::decay_t< T > >::pointer > () ),
-        nucleona::concept::requires< nucleona::concept::Same > ( ++i, std::declval< T& > () ), (void)i++, (void)++i,
-        nucleona::concept::requires< nucleona::concept::Same > ( *i++, std::declval< typename std::iterator_traits<
+        nucleona::concept_::requires_< nucleona::concept_::Same > ( ++i, std::declval< T& > () ), (void)i++, (void)++i,
+        nucleona::concept_::requires_< nucleona::concept_::Same > ( *i++, std::declval< typename std::iterator_traits<
                                      std::decay_t< T > >::value_type > () ) );
 };
 
@@ -53,7 +53,7 @@ struct InputIterator
 struct RandomAccessIterator
 {
     template < class T >
-    auto requires ( T&& o ) NUCLEONA_EXPRS (
+    auto requires_ ( T&& o ) NUCLEONA_EXPRS (
         *o, o++, o--, ++o, --o, o + int(), o - int(), o += int(), o -= int() );
 };
 }

@@ -63,7 +63,7 @@ using OneLevelFlattenIteratorProto = boost::iterator_adaptor<
 struct OneLevelFlattenParameter
 {
     template< class RNG >
-    auto requires( RNG r ) NUCLEONA_EXPRS(
+    auto requires_( RNG r ) NUCLEONA_EXPRS(
         r.begin()->begin()
     );
 };

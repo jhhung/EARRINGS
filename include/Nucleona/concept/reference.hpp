@@ -1,13 +1,13 @@
 #pragma once
 #include <Nucleona/concept/core.hpp>
 #include <type_traits>
-namespace nucleona{ namespace concept{
+namespace nucleona{ namespace  concept_{
 
 struct Reference
 {
     template<class T>
-    auto requires( T o ) NUCLEONA_EXPRS(
-        nucleona::concept::is_true<
+    auto requires_( T o ) NUCLEONA_EXPRS(
+        nucleona::concept_::is_true<
             std::is_reference<T>::value
         >
     );

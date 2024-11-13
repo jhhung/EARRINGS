@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <Nucleona/concept/core.hpp>
 namespace nucleona {
-namespace concept {
+namespace concept_ {
 
 /**
  * @brief Used to check the input type is same.
@@ -16,7 +16,7 @@ namespace concept {
 struct Same
 {
     template < class T1, class T2 >
-    auto requires ( T1 t1, T2 t2 )
+    auto requires_ ( T1 t1, T2 t2 )
         NUCLEONA_EXPRS ( (is_true< std::is_same< T1, T2 >::value >));
 };
 }

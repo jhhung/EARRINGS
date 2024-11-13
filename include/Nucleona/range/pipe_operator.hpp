@@ -8,7 +8,7 @@
 #include <Nucleona/tuple/concept.hpp>
 
 namespace nucleona{ namespace range{ namespace pipe_operator {
-namespace nc_ = nucleona::concept;
+namespace nc_ = nucleona::concept_;
 namespace nr_ = nucleona::range;
 
 template< class RNG, class ROP >
@@ -32,8 +32,8 @@ auto make_range_transform( RNG&& rng, ROP&& rop )
 template<
       class RNG
     , class RNG_OP
-    , NUCLEONA_CONCEPT_REQUIRE_( nr_::concept::Range, RNG )
-    , NUCLEONA_CONCEPT_REQUIRE_( nucleona::tuple::concept::Tuple, RNG_OP )
+    , NUCLEONA_CONCEPT_REQUIRE_( nr_::concept_::Range, RNG )
+    , NUCLEONA_CONCEPT_REQUIRE_( nucleona::tuple::concept_::Tuple, RNG_OP )
 >
 decltype(auto) operator| ( RNG&& rng, RNG_OP&& op )
 {

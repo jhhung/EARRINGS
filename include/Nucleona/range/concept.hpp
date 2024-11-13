@@ -2,14 +2,14 @@
 #include <Nucleona/range/core.hpp>
 #include <Nucleona/concept.hpp>
 #include <Nucleona/concept/iterator.hpp>
-namespace nucleona{ namespace range{ namespace concept {
-namespace nc_ = nucleona::concept;
+namespace nucleona{ namespace range{ namespace  concept_ {
+namespace nc_ = nucleona::concept_;
 struct Range
 {
     template<class T>
-    auto requires( T o ) NUCLEONA_EXPRS(
-          nc_::requires<nc_::Iterator>( o.begin() )
-        , nc_::requires<nc_::Iterator>( o.end()   )
+    auto requires_( T o ) NUCLEONA_EXPRS(
+          nc_::requires_<nc_::Iterator>( o.begin() )
+        , nc_::requires_<nc_::Iterator>( o.end()   )
     );
 };
 }

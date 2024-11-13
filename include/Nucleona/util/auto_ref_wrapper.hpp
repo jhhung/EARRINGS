@@ -4,17 +4,17 @@
 #include <Nucleona/util.hpp>
 namespace nucleona{ namespace util{
 
-template<class T, class E = nucleona::concept::Enable> 
+template<class T, class E = nucleona::concept_::Enable>
 struct AutoRefWrapper 
 {
     static_assert( 
-          std::is_same<E, nucleona::concept::Enable>::value
+          std::is_same<E, nucleona::concept_::Enable>::value
         , "AutoRefWrapper static assert fail" 
     );
 };
 
 template<class T> 
-struct AutoRefWrapper< T, NUCLEONA_CONCEPT_REQUIRE_NOT__( nucleona::concept::LvalueReference, T ) >
+struct AutoRefWrapper< T, NUCLEONA_CONCEPT_REQUIRE_NOT__( nucleona::concept_::LvalueReference, T ) >
 {
     using Storage = std::remove_const_t<T>;
     T data;
@@ -56,7 +56,7 @@ struct AutoRefWrapper< T, NUCLEONA_CONCEPT_REQUIRE_NOT__( nucleona::concept::Lva
 };
 
 template< class T > 
-struct AutoRefWrapper< T, NUCLEONA_CONCEPT_REQUIRE__( nucleona::concept::LvalueReference, T ) > 
+struct AutoRefWrapper< T, NUCLEONA_CONCEPT_REQUIRE__( nucleona::concept_::LvalueReference, T ) >
 {
     using Data = std::remove_reference_t<T>;
     using Storage = Data*;

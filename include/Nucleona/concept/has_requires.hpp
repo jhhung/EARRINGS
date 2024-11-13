@@ -6,7 +6,7 @@
 #pragma once
 #include <type_traits>
 namespace nucleona {
-namespace concept {
+namespace concept_ {
 /**
  * @brief The default type of HasRequires, is a error assert section which
  * should never be compiled.
@@ -34,7 +34,7 @@ struct HasRequires< C, Ret ( Args... ) >
     static constexpr auto check ( T* ) ->
         typename std::is_same< 
             decltype ( 
-                std::declval< T > ().template requires< Args... > (
+                std::declval< T > ().template requires_< Args... > (
                     std::declval< Args > ()... 
                 ) 
             )

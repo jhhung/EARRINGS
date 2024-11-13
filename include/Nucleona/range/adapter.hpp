@@ -31,7 +31,7 @@ struct Adapter
     }
 };
 
-template < class T, NUCLEONA_CONCEPT_REQUIRE_( concept::Range, T ) >
+template < class T, NUCLEONA_CONCEPT_REQUIRE_( concept_::Range, T ) >
 auto make_adapter( T&& br )
 {
     return Adapter< T >( FWD( br ) );

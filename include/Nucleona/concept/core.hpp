@@ -14,9 +14,9 @@
  * This macro provides convenient way to create expression validate check.
  */
 #ifdef _MSC_VER
-    #define NUCLEONA_EXPRS(...) -> decltype( nucleona::concept::valid_expr( EX(NUCLEONA_VALID_EXPRS(__VA_ARGS__) )) )
+    #define NUCLEONA_EXPRS(...) -> decltype( nucleona::concept_::valid_expr( EX(NUCLEONA_VALID_EXPRS(__VA_ARGS__) )) )
 #else
-    #define NUCLEONA_EXPRS(...) -> decltype( nucleona::concept::valid_expr( NUCLEONA_VALID_EXPRS(__VA_ARGS__) ) )
+    #define NUCLEONA_EXPRS(...) -> decltype( nucleona::concept_::valid_expr( NUCLEONA_VALID_EXPRS(__VA_ARGS__) ) )
 #endif
 /**
  * @def NUCLEONA_CONCEPT_REQUIRE__( CONCEPT_ID, ... )
@@ -24,18 +24,18 @@
  * remove or not by input concept and args
  */
 #define NUCLEONA_CONCEPT_REQUIRE__( CONCEPT_ID, ... )            \
-    nucleona::concept::EnableIf<                                 \
-        nucleona::concept::satisfied< CONCEPT_ID, __VA_ARGS__ >, \
-        nucleona::concept::Enable, CONCEPT_ID, __VA_ARGS__ >
+    nucleona::concept_::EnableIf<                                 \
+        nucleona::concept_::satisfied< CONCEPT_ID, __VA_ARGS__ >, \
+        nucleona::concept_::Enable, CONCEPT_ID, __VA_ARGS__ >
 
 /**
  * @def NUCLEONA_CONCEPT_REQUIRE_NOT__( CONCEPT_ID, ... )
  * Inverse check of NUCLEONA_CONCEPT_REQUIRE__
  */
 #define NUCLEONA_CONCEPT_REQUIRE_NOT__( CONCEPT_ID, ... )         \
-    nucleona::concept::EnableIf<                                  \
-        !nucleona::concept::satisfied< CONCEPT_ID, __VA_ARGS__ >, \
-        nucleona::concept::Enable, CONCEPT_ID, __VA_ARGS__ >
+    nucleona::concept_::EnableIf<                                  \
+        !nucleona::concept_::satisfied< CONCEPT_ID, __VA_ARGS__ >, \
+        nucleona::concept_::Enable, CONCEPT_ID, __VA_ARGS__ >
 
 /**
  * @def NUCLEONA_CONCEPT_REQUIRE_( CONCEPT_ID, ... )
@@ -44,10 +44,10 @@
  */
 #ifdef _MSC_VER
     #define NUCLEONA_CONCEPT_REQUIRE_( CONCEPT_ID, ... ) \
-        EX(NUCLEONA_CONCEPT_REQUIRE__(CONCEPT_ID, __VA_ARGS__ )) = nucleona::concept::yes
+        EX(NUCLEONA_CONCEPT_REQUIRE__(CONCEPT_ID, __VA_ARGS__ )) = nucleona::concept_::yes
 #else
     #define NUCLEONA_CONCEPT_REQUIRE_( CONCEPT_ID, ... ) \
-        NUCLEONA_CONCEPT_REQUIRE__(CONCEPT_ID, __VA_ARGS__ ) = nucleona::concept::yes
+        NUCLEONA_CONCEPT_REQUIRE__(CONCEPT_ID, __VA_ARGS__ ) = nucleona::concept_::yes
 #endif
 
 /**
@@ -56,10 +56,10 @@
  */
 #ifdef _MSC_VER
     #define NUCLEONA_CONCEPT_REQUIRE_NOT_( CONCEPT_ID, ... ) \
-        EX(NUCLEONA_CONCEPT_REQUIRE_NOT__(CONCEPT_ID,__VA_ARGS__)) = nucleona::concept::yes
+        EX(NUCLEONA_CONCEPT_REQUIRE_NOT__(CONCEPT_ID,__VA_ARGS__)) = nucleona::concept_::yes
 #else
     #define NUCLEONA_CONCEPT_REQUIRE_NOT_( CONCEPT_ID, ... ) \
-        NUCLEONA_CONCEPT_REQUIRE_NOT__(CONCEPT_ID,__VA_ARGS__) = nucleona::concept::yes
+        NUCLEONA_CONCEPT_REQUIRE_NOT__(CONCEPT_ID,__VA_ARGS__) = nucleona::concept_::yes
 #endif
 
 /**
@@ -93,18 +93,18 @@
  * This macro create static assert of a concept check.
  */
 #define NUCLEONA_CONCEPT_ASSERT( CONCEPT_ID, ... )                           \
-    static_assert ( nucleona::concept::satisfied< CONCEPT_ID, __VA_ARGS__ >, \
+    static_assert ( nucleona::concept_::satisfied< CONCEPT_ID, __VA_ARGS__ >, \
         __FILE__ ":" __LINE__ ":" #CONCEPT_ID " not satisfied" )
 /**
  * @def NUCLEONA_CONCEPT_ASSERT_NOT( CONCEPT_ID, ... )
  * Inverse check of NUCLEONA_CONCEPT_ASSERT
  */
 #define NUCLEONA_CONCEPT_ASSERT_NOT( CONCEPT_ID, ... )                        \
-    static_assert ( !nucleona::concept::satisfied< CONCEPT_ID, __VA_ARGS__ >, \
+    static_assert ( !nucleona::concept_::satisfied< CONCEPT_ID, __VA_ARGS__ >, \
         __FILE__ ":" __LINE__ ":" #CONCEPT_ID " not satisfied" )
 
 namespace nucleona {
-namespace concept {
+namespace concept_ {
 /**
  * This is a dummy enum type for better look of concept check expression.
  */
@@ -130,7 +130,7 @@ constexpr ValidExprRet valid_expr ( T... o );
  */
 template < class CONCEPT, class... T >
 constexpr bool satisfied =
-    nucleona::concept::HasRequires< CONCEPT, ValidExprRet ( T... ) >::value;
+    nucleona::concept_::HasRequires< CONCEPT, ValidExprRet ( T... ) >::value;
 
 /**
  * @brief Convert boolean state back to the compile pass or failed state.
@@ -144,8 +144,8 @@ constexpr bool  is_true = b;
  * @details Same purpose of CONCEPT::requires, object based concept check.
  */
 template < class CONCEPT, class... T >
-constexpr auto requires ( T... o )
-    NUCLEONA_EXPRS ( std::declval< CONCEPT > ().requires ( o... ) );
+constexpr auto requires_ ( T... o )
+    NUCLEONA_EXPRS ( std::declval< CONCEPT > ().requires_ ( o... ) );
 /**
  * @brief Customized enable if
  * @details Same purpose of std::enable_if, but provide batter error output for
@@ -180,14 +180,14 @@ using EnableIf = typename EnableIfProto< b, T, CONCEPT, CONCEPT_ARGS... >::Type;
  */
 template < class CONCEPT, class... T >
 using concept_require =
-    concept::EnableIf< nucleona::concept::satisfied< CONCEPT, T... >,
-        concept::Enable, CONCEPT, T... >;
+    concept_::EnableIf< nucleona::concept_::satisfied< CONCEPT, T... >,
+        concept_::Enable, CONCEPT, T... >;
 /**
  * @brief Template interface for concept check
  * @details Inverse check of concept_require
  */
 template < class CONCEPT, class... T >
 using concept_require_not =
-    concept::EnableIf< !nucleona::concept::satisfied< CONCEPT, T... >,
-        concept::Enable, CONCEPT, T... >;
+    concept_::EnableIf< !nucleona::concept_::satisfied< CONCEPT, T... >,
+        concept_::Enable, CONCEPT, T... >;
 }

@@ -13,7 +13,7 @@ using FilterStorage = nucleona::util::AutoRefWrapper<T>;
 struct FilterParameter
 {
     template< class RNG, class FUNC >
-    auto requires( RNG r, FUNC func ) NUCLEONA_EXPRS(
+    auto requires_( RNG r, FUNC func ) NUCLEONA_EXPRS(
         (bool)func(*r.begin())
     );
 };
