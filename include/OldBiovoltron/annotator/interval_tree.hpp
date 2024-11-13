@@ -16,7 +16,7 @@
 #include <algorithm>
 #include <variant>
 #include <typeinfo>
-#include <Biovoltron/annotator/exception.hpp>
+#include <OldBiovoltron/annotator/exception.hpp>
 
 namespace biovoltron::annotator
 {

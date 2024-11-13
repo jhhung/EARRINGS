@@ -18,7 +18,7 @@ using namespace EARRINGS;
 
 namespace EARRINGS
 {
-template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+template<template<bool, class> class FORMAT, class BITSTR, typename IFS, typename OFS>
 class TaskProcessor
 {
 private:
@@ -26,7 +26,7 @@ private:
     using remove_cvr_t = std::remove_cv_t<std::remove_reference_t<T>>;
     using BIO_filtering_istream = boost::iostreams::filtering_istream;
     using BIO_filtering_ostream = boost::iostreams::filtering_ostream;
-    using FORMAT2BIT = FORMAT<BITSTR>;
+    using FORMAT2BIT = FORMAT<false, BITSTR>;
     fs::path _tmp_path;
     BufferManager _buf_manager;
     Trimmer<PAIRED, FORMAT2BIT> _tr;
@@ -69,7 +69,7 @@ public:
     void process();
 };
 
-template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+template<template<bool, class> class FORMAT, class BITSTR, typename IFS, typename OFS>
 TaskProcessor<FORMAT, BITSTR, IFS, OFS>::TaskProcessor(size_t thread_num
                                                     , size_t chunk_size
                                                     , size_t record_line
@@ -152,7 +152,7 @@ TaskProcessor<FORMAT, BITSTR, IFS, OFS>::TaskProcessor(size_t thread_num
     _is_sensitive = is_sensitive;
 }
 
-template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+template<template<bool, class> class FORMAT, class BITSTR, typename IFS, typename OFS>
 void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::process()
 {
     detect_adapters();
@@ -183,7 +183,7 @@ void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::process()
 }
 
 
-template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+template<template<bool, class> class FORMAT, class BITSTR, typename IFS, typename OFS>
 void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::preprocess(FORMAT2BIT& fm1
                                                     , FORMAT2BIT& fm2
                                                     , size_t pos)
@@ -196,7 +196,7 @@ void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::preprocess(FORMAT2BIT& fm1
     }
 }
 
-template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+template<template<bool, class> class FORMAT, class BITSTR, typename IFS, typename OFS>
 void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::detect_adapters()
 {
     // detect adapter using the first N reads
@@ -302,7 +302,7 @@ void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::detect_adapters()
 
 }
 
-template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+template<template<bool, class> class FORMAT, class BITSTR, typename IFS, typename OFS>
 template<class POOL>
 bool TaskProcessor<FORMAT, BITSTR, IFS, OFS>::read_task(POOL& pool)
 {
@@ -332,7 +332,7 @@ bool TaskProcessor<FORMAT, BITSTR, IFS, OFS>::read_task(POOL& pool)
 	return eof;
 }
 
-template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+template<template<bool, class> class FORMAT, class BITSTR, typename IFS, typename OFS>
 template<class POOL>
 void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::trim_task(Task task, POOL& pool)
 {
@@ -353,7 +353,7 @@ void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::trim_task(Task task, POOL& pool)
 	else;
 }
 
-template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+template<template<bool, class> class FORMAT, class BITSTR, typename IFS, typename OFS>
 void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::write_task(Task& task)
 {
 	std::ofstream f1(_tmp_dir[0] / fs::path(std::to_string(task.f_idx)), std::ios_base::binary);
@@ -411,7 +411,7 @@ void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::write_task(Task& task)
     f2.close();
 }
 
-template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+template<template<bool, class> class FORMAT, class BITSTR, typename IFS, typename OFS>
 void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::write_all_task()
 {	
 	// get all files under temporary directory 
@@ -435,7 +435,7 @@ void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::write_all_task()
     }
 }
 
-template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+template<template<bool, class> class FORMAT, class BITSTR, typename IFS, typename OFS>
 void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::trim_reads(Task& task)
 {
 	size_t start_pos(task.buf_idx * _chunk_size);
@@ -494,7 +494,7 @@ void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::trim_reads(Task& task)
 	}
 }
 
-template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+template<template<bool, class> class FORMAT, class BITSTR, typename IFS, typename OFS>
 bool TaskProcessor<FORMAT, BITSTR, IFS, OFS>::read_reads(Task& task)
 {
     // if (!_ifs[0].good())

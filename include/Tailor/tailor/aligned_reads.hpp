@@ -8,7 +8,7 @@ template <class Fastq, class IndexType>
 struct AlignedReads
 {
   using fastq = Fastq;
-  using seq_type = typename fastq::SEQ;
+  using seq_type = decltype(fastq::seq);
   using index_type = IndexType;
   
   bool has_data_;

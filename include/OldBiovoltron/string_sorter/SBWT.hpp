@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Biovoltron/string_sorter/SuffixSplitter.hpp>
+#include <OldBiovoltron/string_sorter/SuffixSplitter.hpp>
 
 #include <boost/archive/binary_iarchive.hpp>
 

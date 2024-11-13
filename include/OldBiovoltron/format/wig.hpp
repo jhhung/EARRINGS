@@ -2,7 +2,7 @@
 /// @brief A parser of wig format file 
 
 #pragma once
-#include <Biovoltron/format/wig/header.hpp>
+#include <OldBiovoltron/format/wig/header.hpp>
 
 namespace biovoltron::format{
 

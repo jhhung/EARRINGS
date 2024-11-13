@@ -365,7 +365,7 @@ class Trimmer <PAIRED, FORMAT>
 };
 
 template <typename FORMAT>
-simdpp::uint8<ALIGN_BYTE> Trimmer<PAIRED, FORMAT>::extract_mask 
+simdpp::uint8<ALIGN_BYTE> Trimmer<PAIRED, FORMAT>::extract_mask
     = simdpp::make_uint(3);
 
 template <typename FORMAT>

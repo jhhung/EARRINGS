@@ -18,5 +18,6 @@ target_link_libraries(${__screw_target} PUBLIC
     stdc++fs
     skewer
     ZLIB::zlib
+    biovoltron
 )
 

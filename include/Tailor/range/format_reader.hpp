@@ -3,7 +3,7 @@
 
 #include <istream>
 #include <mutex>
-#include <Biovoltron/format/fastq.hpp>
+#include <OldBiovoltron/format/fastq.hpp>
 #include <range/v3/all.hpp>
 
 namespace pipeline::range {

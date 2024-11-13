@@ -5,8 +5,8 @@
  */
 #pragma once
 
-#include <Biovoltron/format/sam.hpp>
-#include <Biovoltron/format/bam/header.hpp>
+#include <OldBiovoltron/format/sam.hpp>
+#include <OldBiovoltron/format/bam/header.hpp>
 
 namespace biovoltron::format {
 

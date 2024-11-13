@@ -4,11 +4,13 @@
 #include <Tailor/tailor/paras.hpp>
 #include <Tailor/tailor/aligned_reads.hpp>
 #include <boost/filesystem.hpp>
-#include <Biovoltron/format/fastq.hpp>
-#include <Biovoltron/format/newlineSeperatedFasta.hpp>
-#include <Biovoltron/indexer/FMIndex.hpp>
-#include <Biovoltron/string_sorter/RadixSort.hpp>
-#include <Biovoltron/string_sorter/SBWT.hpp>
+#include <EARRINGS/fasta.hpp>
+#include <EARRINGS/fastq.hpp>
+//#include <OldBiovoltron/format/fastq.hpp>
+#include <OldBiovoltron/format/newlineSeperatedFasta.hpp>
+#include <OldBiovoltron/indexer/FMIndex.hpp>
+#include <OldBiovoltron/string_sorter/RadixSort.hpp>
+#include <OldBiovoltron/string_sorter/SBWT.hpp>
 
 
 namespace tailor {
@@ -24,12 +26,12 @@ using RadixSort = biovoltron::string_sorter::RadixSort<>;
 using IntType = std::uint32_t;
 using SuffixArrayType = std::vector<IntType>;
 using SBWT = biovoltron::string_sorter::SBWT<SuffixArrayType, RadixSort>;
-using Seq2bits = biovoltron::vector<biovoltron::char_type>; 
-using Seq8bits = std::string; 
+using Seq2bits = biovoltron::vector<biovoltron::char_type>;
+using Seq8bits = std::string;
 
 using Seq = Seq8bits;
-using Fastq = biovoltron::format::FASTQ<Seq>;
-using Fasta = biovoltron::format::FASTA<Seq>;
+using Fastq = EARRINGS::Fastq<false, Seq>;
+using Fasta = EARRINGS::Fasta<false, Seq>;
 
 using Indexer = biovoltron::indexer::FMIndex<
   Seq, SuffixArrayType, SBWT, Interval, 
@@ -82,7 +84,7 @@ constexpr std::array<std::uint32_t, ASCIISize> char_to_order = char_to_order_ini
 template <typename SEQ>
 void reverse_c(SEQ& seq) {}
 
-// the base in the middle wouldn't be filpped when seq size is odd.
+// the base in the middle wouldn't be flipped when seq size is odd.
 template <>
 void reverse_c<Seq8bits>(Seq8bits& seq)
 {
@@ -109,58 +111,32 @@ void reverse_c<Seq2bits>(Seq2bits& seq)
 }
 
 template <bool boolType>
-class TailorMain {};
-
-template <>
-class TailorMain <true>
+class TailorMain
 {
+  using SeqType = std::conditional_t<boolType, Fasta, Fastq>;
+  using ReadsType = std::conditional_t<boolType, FastaReads, FastqReads>;
+
   TailParas pt;
-  TailorSearcher<Fasta, Indexer, TailParas, FastaReads> table;
-  
+  TailorSearcher<SeqType, Indexer, TailParas, ReadsType> table;
+
   public:
-  
+
   explicit TailorMain(
       const std::size_t n_thread
     , const uint32_t min_prefix_len
     , const uint32_t min_multi
     , const std::string& prefix_name
-    , bool allow_mm = true 
+    , bool allow_mm = true
     )
     : pt(n_thread, min_prefix_len, min_multi, allow_mm)
     , table(char_to_order, order_to_char, prefix_name, pt)
   {}
-  auto& get_table() const noexcept
-  {
-    return table;
-  }
-  auto& get_paras() const noexcept
-  {
-    return pt;
-  }
-};
 
-template <>
-class TailorMain <false>
-{
-  TailParas pt;
-  TailorSearcher<Fastq, Indexer, TailParas, FastqReads> table;
-  
-  public:
-  
-  explicit TailorMain(
-      const std::size_t n_thread
-    , const uint32_t min_prefix_len
-    , const uint32_t min_multi
-    , const std::string& prefix_name
-    , bool allow_mm = true 
-    )
-    : pt(n_thread, min_prefix_len, min_multi, allow_mm)
-    , table(char_to_order, order_to_char, prefix_name, pt)
-  {}
   auto& get_table() const noexcept
   {
     return table;
   }
+
   auto& get_paras() const noexcept
   {
     return pt;

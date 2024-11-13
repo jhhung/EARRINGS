@@ -36,4 +36,7 @@ find_package(range-v3 CONFIG REQUIRED)
 hunter_add_package(ZLIB)
 find_package(ZLIB CONFIG REQUIRED)
 
+set(BIOVOLTRON_TESTS OFF)
+add_subdirectory(${CMAKE_SOURCE_DIR}/submodules/Biovoltron)
+
 include(${SCREW_DIR}/hunter_root.cmake)

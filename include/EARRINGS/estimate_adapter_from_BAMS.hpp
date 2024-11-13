@@ -4,8 +4,9 @@
 #include <utility>
 #include <fstream>
 #include <EARRINGS/common.hpp>
-#include <Biovoltron/format/bam.hpp>
-#include <Biovoltron/format/fasta_peat.hpp>
+#include <EARRINGS/fasta.hpp>
+#include <OldBiovoltron/format/bam.hpp>
+//#include <OldBiovoltron/format/fasta_peat.hpp>
 
 using namespace biovoltron::format;
 using namespace EARRINGS;
@@ -77,7 +78,7 @@ public:
             throw std::runtime_error("Can't open temp file which stores reads extract from bam/ubam\n");
         }
 
-        Header bam_header;
+        bam::Header bam_header;
         ifs >> bam_header;
 
         BAM bam(bam_header);
@@ -113,7 +114,7 @@ public:
             throw std::runtime_error("Can't open input fastq/fasta files\n");
         }
 
-        Header bam_header;
+        bam::Header bam_header;
         ifs >> bam_header;
 
         BAM bam1(bam_header), bam2(bam_header);

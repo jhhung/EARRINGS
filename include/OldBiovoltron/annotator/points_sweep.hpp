@@ -16,7 +16,7 @@
 #include <unordered_set>
 #include <set>
 #include <map>
-#include <Biovoltron/annotator/exception.hpp>
+#include <OldBiovoltron/annotator/exception.hpp>
 
 namespace biovoltron::annotator
 {

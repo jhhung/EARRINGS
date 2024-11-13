@@ -3,7 +3,7 @@
  *  @brief The program parsing SAM's header
  *  @author JHHlab corp
  */
-#include <Biovoltron/format/sam/header.hpp>
+#include <OldBiovoltron/format/sam/header.hpp>
 
 namespace biovoltron::format {
     class BAM;

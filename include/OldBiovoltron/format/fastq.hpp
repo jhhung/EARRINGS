@@ -15,18 +15,18 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include <Biovoltron/base_vector.hpp>
+#include <OldBiovoltron/base_vector.hpp>
 
 namespace biovoltron::format{
 
 /**
- * @class fastaException
+ * @class FASTQException
  * @brief An exception class which inherit std::runtime_error
  *
  * This class will be thrown if actions which belongs to VCF have 
  * exceptions.
  */
-class fastaException : public std::runtime_error
+class FASTQException : public std::runtime_error
 {
   public:
     /**
@@ -34,32 +34,50 @@ class fastaException : public std::runtime_error
      *
      * @param m Message string wanted to be assigned
      */
-    fastaException (const std::string& msg)
-	: runtime_error(std::string("fastaException " + msg))
+    FASTQException (const std::string& msg)
+	: runtime_error(std::string("FASTQException " + msg))
     {
     }
 };
 
 /**
- * @class FASTA_PE
- * @brief A FASTA_PE object which stores a line of fasta format, that is 
- * an entry of fasta data.
+ * @brief A static vector which stores 3 fast random seeds for fast 
+ * random function of FASTQ class
+ */
+static std::vector<unsigned long> 
+    fast_rand_seed = {123456789, 362436069, 521288629};
+
+/**
+ * @class FASTQ
+ * @brief A FASTQ object which stores a line of fastq format, that is 
+ * an entry of fastq data.
  * 
  * Member variable:<br>
  *	State state_<br>
  *	std::string name<br>
  *	NTable n_base_info_table<br>
  *	Sequence seq<br>
+ *	std::string seq_qual<br>
  *
- * This class can store an entry of fasta data, and also provides 
+ * This class can store an entry of fastq data, and also provides 
  * entry parsing, access, modify and entry processing functions, 
- * like substr(), trim(), get_antisence().<br>
+ * like substr(), trim(), get_antisense().<br>
  * And also provides sequence compression by using 
  * biovoltron::base_vector, so that the size of sequence can be 
  * decressed to 1/4.
+ *
+ * @tparam Sequence Type to store sequences, std::string is defaulted 
+ * . If need compression, can use biovoltron::base_vector instead.
+ * @tparam QualType A type which can store the quality line of a 
+ * fastq entry, std::string is default. If user want to use their 
+ * type, that type should work like std::string, that means it 
+ * should at least support "clear()", "reserve()", "size()", 
+ * "push_back()", "append()", "substr()", "resize()" "and operator[]"
+ * . For example, biovoltron::vector is a proper type.
+ *
  */
-template <typename Sequence = std::string>
-class FASTA_PE
+template <typename Sequence = std::string, typename QualType = std::string>
+class FASTQ
 {
     /**
      * @brief Simulate a table by using 
@@ -73,19 +91,21 @@ class FASTA_PE
     /**
      * @enum state
      * @brief An enum class which indicates different state during 
-     * parsing fasta files.
+     * parsing fastq files.
      *
      * This enum contains name, seq, plus, qual, end. The last one 
      * "end" is used for distinguish the end of a round. And others 
-     * indicate different categories of lines in fasta format.
+     * indicate different categories of lines in fastq format.
      */
-    enum class State {name, seq, end};
+    enum class State {name, seq, plus, qual, end};
 
     ///An State variable which is initialized to State::name
     State state_ = State::name;
 
   public:
-    ///A string which store the name line of a fasta entry
+    
+    using SEQ = Sequence;
+    ///A string which store the name line of a fastq entry
     std::string name;
 
     /**
@@ -97,58 +117,61 @@ class FASTA_PE
     ///A Sequence which store sequence, Sequence is template parameter
     Sequence seq;
 
+    ///A QualType variable which store the quality line of a fastq entry
+    QualType seq_qual;
+
     /**
      * @brief >> operator which get entry from an istream
      * 
      * @param is An istream where to get entry
-     * @param fa A FASTA_PE object to store gotten entry
+     * @param fq A FASTQ object to store gotten entry
      * 
      * @return Is identical to parameter is
      *
-     * Just call FASTA_PE::get_obj() to help parse given istream, and 
-     * store them in given FASTA_PE object.<br>
+     * Just call FASTQ::get_obj() to help parse given istream, and 
+     * store them in given FASTQ object.<br>
      * Should have the some property to get_obj function.
      *
-     * @sa FASTA_PE::get_obj()
+     * @sa FASTQ::get_obj()
      */
-    friend std::istream& operator>>(std::istream& is, FASTA_PE& fa)
+    friend std::istream& operator>>(std::istream& is, FASTQ& fq)
     {
-	    return get_obj(is, fa);
+	return get_obj(is, fq);
     }
 
     /**
      * @brief << operator which write entry to an ostream
      * 
      * @param os An ostream where to write entry
-     * @param fa A FASTA_PE object which is going to write to os
+     * @param fq A FASTQ object which is going to write to os
      * 
      * @return Is identical to parameter os
      *
-     * Just call FASTA_PE::to_string() to help change data of given FASTA_PE  
+     * Just call FASTQ::to_string() to help change data of given FASTQ  
      * object to string then output to given ostream, and store them 
-     * in given FASTA_PE object.<br>
-     * Should have the some property to FASTA_PE::to_string()
+     * in given FASTQ object.<br>
+     * Should have the some property to FASTQ::to_string()
      *
-     * @sa FASTA_PE::to_string()
+     * @sa FASTQ::to_string()
      */
-    friend std::ostream& operator<<(std::ostream& os, const FASTA_PE& fa)
+    friend std::ostream& operator<<(std::ostream& os, const FASTQ& fq)
     {
-	    os << fa.to_string();
-	    return os;
+	os << fq.to_string();
+	return os;
     }
 
     /**
-     * @brief Parse fasta entry from specific istream
+     * @brief Parse fastq entry from specific istream
      *
      * @param is An istream contains entry data
-     * @param fa A FASTA_PE object used to store parsed entry data
+     * @param fq A FASTQ object used to store parsed entry data
      * @return An istream identical to parameter is
      *
-     * Use std::getline to get lines from istream and store in fa. 
-     * Because there are 4 types of line for each fasta entry, use 
+     * Use std::getline to get lines from istream and store in fq. 
+     * Because there are 4 types of line for each fastq entry, use 
      * for loop to iterate state_ and use switch to compare states. 
      * If the format is correct, then just store data to respective 
-     * variable. Otherwise, throw fastaException with the reason to 
+     * variable. Otherwise, throw FASTQException with the reason to 
      * warn user.<br>
      * Notice that, if there are n-bases in sequence. we store start 
      * point and length of every continueous n-base sub-sequence in 
@@ -160,102 +183,149 @@ class FASTA_PE
      * Time complexity: O(n)<br>
      *	    \e n: the length of sequence<br>
      *
-     * @sa FASTA_PE::fast_rand()
+     * @sa FASTQ::fast_rand()
      */
-    static std::istream& get_obj(std::istream& is, FASTA_PE& fa)
+    static std::istream& get_obj(std::istream& is, FASTQ& fq)
     {
 	std::string buf;
 
-	for (fa.state_ = State::name; 
-	    fa.state_ != State::end; 
-	    fa.state_ = (State)((size_t)fa.state_ + 1))
+	for (fq.state_ = State::name; 
+	    fq.state_ != State::end; 
+	    fq.state_ = (State)((size_t)fq.state_ + 1))
 	{
-	    switch (fa.state_)
+	    switch (fq.state_)
 	    {
 		case State::name:
+		    std::getline(is, fq.name, '\n');
 		    if (!is.good())
 			return is;
 
-		    std::getline(is, fa.name, '\n');
-
-		    if (fa.name.size() > 0 && fa.name.front() == '>')
-			fa.name.erase(fa.name.begin());
+		    if (*fq.name.begin() == '@')
+			fq.name.erase(fq.name.begin());
 		    else
-			throw fastaException(
-			    "ERROR: get_obj(): Can't find \'>\' from "
+			throw FASTQException(
+			    "ERROR: get_obj(): Can't find \'@\' from "
 			    "input when state is equal to name\n"
 			);
 
 		    break;
 		case State::seq:
-		    fa.seq.clear();
+		    fq.seq.clear();
+		    std::getline(is, buf, '\n');
 
 		    if (!is.good())
-			throw fastaException(
+			throw FASTQException(
 			    "ERROR: get_obj(): seq field of an entry "
 			    "is disappear\n"
 			);
-
-		    std::getline(is, buf, '\n');
-		    fa.seq.reserve(buf.size());
+		    fq.seq.reserve(buf.size());
 
 		    for (size_t i(0); i < buf.size(); i++)
 		    {
-			switch (buf.at(i))
+			switch (buf[i])
 			{
 			    case 'A':
 			    case 'a':
-				fa.seq.push_back('A');
+				fq.seq.push_back('A');
 				break;
 			    case 'C':
 			    case 'c':
-				fa.seq.push_back('C');
+				fq.seq.push_back('C');
 				break;
 			    case 'G':
 			    case 'g':
-				fa.seq.push_back('G');
+				fq.seq.push_back('G');
 				break;
 			    case 'T':
 			    case 't':
-				fa.seq.push_back('T');
+				fq.seq.push_back('T');
 				break;
 			    case 'N':
 			    case 'n':
-				fa.n_base_info_table.emplace_back(i, 0);
-				for (; i < buf.size() &&
-						(buf.at(i) == 'N' ||
-						buf.at(i) == 'n'); 
-					i++)
-				{
-				switch (fast_rand() % 4)
-				{
-					case 0:
-					fa.seq.push_back('A');
-					break;
-					case 1:
-					fa.seq.push_back('C');
-					break;
-					case 2:
-					fa.seq.push_back('G');
-					break;
-					case 3:
-					fa.seq.push_back('T');
-					break;
-				}
-				fa.n_base_info_table.back().second++;
-				}
+				fq.n_base_info_table.emplace_back(
+				    i, 0
+				);
 				i--;
+				while (buf[i + 1] == 'N' ||
+					buf[i + 1] == 'n')
+				{
+				    switch (fast_rand() % 4)
+				    {
+					case 0:
+					    fq.seq.push_back('A');
+					    break;
+					case 1:
+					    fq.seq.push_back('C');
+					    break;
+					case 2:
+					    fq.seq.push_back('G');
+					    break;
+					case 3:
+					    fq.seq.push_back('T');
+					    break;
+				    }
+				    fq.n_base_info_table.back().second++;
+				    i++;
+				}
 
 				break;
 			    default:
-				throw fastaException(
+				throw FASTQException(
 				    "ERROR: get_obj(): invalid input "
 				    "seq charactor\n"
 				);
 			}
 		    }
-		    break;
 
+		    break;
+		case State::plus:
+		    std::getline(is, buf, '\n');
+
+		    if (buf[0] != '+')
+			throw FASTQException(
+			    "ERROR: get_obj(): There is not \'+\' "
+			    "after seq line\n"
+			);
+		    else
+			if (buf.size() > 1 && fq.name != buf.substr(1))
+			    throw FASTQException(
+				"ERROR: get_obj(): There is string"
+				"after \'+\' but not equal to string "
+				"after \'@\'\n"
+			    );
+
+		    break;
+		case State::qual:
+			fq.seq_qual.clear();
+
+		    if (!is.good())
+			throw FASTQException(
+			    "ERROR: get_obj(): seq_qual of an entry "
+			    "is disappear\n"
+			);
+
+		    if constexpr (std::is_same_v<
+			    QualType, 
+			    biovoltron::vector<biovoltron::char_type>
+			>)
+		    {
+				std::getline(is, buf);
+				fq.seq_qual.reserve(buf.size());
+
+				for (auto i : buf)
+					fq.seq_qual.push_back(i);
+		    }
+		    else
+				std::getline(is, fq.seq_qual);
+
+		    for (unsigned i(0); i < fq.seq_qual.size(); i++)
+				if (fq.seq_qual[i] > '~' || fq.seq_qual[i] < '!')
+					throw FASTQException(
+					"ERROR: get_obj(): wrong charactor in "
+					"quality string\n"
+					);
+			
+		    break;
 		default:
 		    break;
 	    }
@@ -265,19 +335,19 @@ class FASTA_PE
     }
 
     /**
-     * @brief Parse fasta entry from specific container which stores 
-	 * 4 lines of fasta entry in 4 strings continuous
+     * @brief Parse fastq entry from specific container which stores 
+	 * 4 lines of fastq entry in 4 strings continuous
      *
      * @param is An container iterator points to the first line(aka 
-	 * name line of a fasta entry)
-     * @return The fasta entry required
+	 * name line of a fastq entry)
+     * @return The fastq entry required
      *
      * This function copy 4 lines of string from iterator to 
 	 * iterator + 3.<br>
-     * Because there are 4 types of line for each fasta entry, use 
+     * Because there are 4 types of line for each fastq entry, use 
      * for loop to iterate state_ and use switch to compare states. 
      * If the format is correct, then just store data to respective 
-     * variable. Otherwise, throw fastaException with the reason to 
+     * variable. Otherwise, throw FASTQException with the reason to 
      * warn user.<br>
      * Notice that, if there are n-bases in sequence. we store start 
      * point and length of every continueous n-base sub-sequence in 
@@ -289,32 +359,32 @@ class FASTA_PE
      * Time complexity: O(n)<br>
      *	    \e n: the length of sequence<br>
      *
-     * @sa FASTA_PE::fast_rand()
+     * @sa FASTQ::fast_rand()
      */
 	template <typename Iterator>
-	static FASTA_PE parse_obj(Iterator it)
+	static FASTQ parse_obj(Iterator it)
 	{
-		FASTA_PE fa;
-		for (fa.state_ = State::name; 
-			fa.state_ != State::end; 
-			fa.state_ = (State)((size_t)fa.state_ + 1), it++)
+		FASTQ fq;
+		for (fq.state_ = State::name; 
+			fq.state_ != State::end; 
+			fq.state_ = (State)((size_t)fq.state_ + 1), it++)
 		{
-			switch (fa.state_)
+			switch (fq.state_)
 			{
 				case State::name:
-					fa.name = std::move(*it);
+					fq.name = std::move(*it);
 
-					if (fa.name.size() > 0 && fa.name.front() == '>')
-						fa.name.erase(fa.name.begin());
+					if (fq.name.size() > 0 && fq.name.front() == '@')
+						fq.name.erase(fq.name.begin());
 					else
-						throw fastaException(
+						throw FASTQException(
 						"ERROR: get_obj(): format of name field is "
 						"invalid\n"
 						);
 
 					break;
 				case State::seq:
-					fa.seq.reserve(it->size());
+					fq.seq.reserve(it->size());
 
 					for (size_t i(0); i < it->size(); i++)
 					{
@@ -322,23 +392,23 @@ class FASTA_PE
 						{
 						case 'A':
 						case 'a':
-							fa.seq.push_back('A');
+							fq.seq.push_back('A');
 							break;
 						case 'C':
 						case 'c':
-							fa.seq.push_back('C');
+							fq.seq.push_back('C');
 							break;
 						case 'G':
 						case 'g':
-							fa.seq.push_back('G');
+							fq.seq.push_back('G');
 							break;
 						case 'T':
 						case 't':
-							fa.seq.push_back('T');
+							fq.seq.push_back('T');
 							break;
 						case 'N':
 						case 'n':
-							fa.n_base_info_table.emplace_back(i, 0);
+							fq.n_base_info_table.emplace_back(i, 0);
 							for (; i < it->size() &&
 									(it->at(i) == 'N' ||
 									it->at(i) == 'n'); 
@@ -347,25 +417,25 @@ class FASTA_PE
 							switch (fast_rand() % 4)
 							{
 								case 0:
-								fa.seq.push_back('A');
+								fq.seq.push_back('A');
 								break;
 								case 1:
-								fa.seq.push_back('C');
+								fq.seq.push_back('C');
 								break;
 								case 2:
-								fa.seq.push_back('G');
+								fq.seq.push_back('G');
 								break;
 								case 3:
-								fa.seq.push_back('T');
+								fq.seq.push_back('T');
 								break;
 							}
-							fa.n_base_info_table.back().second++;
+							fq.n_base_info_table.back().second++;
 							}
 							i--;
 
 							break;
 						default:
-							throw fastaException(
+							throw FASTQException(
 							"ERROR: get_obj(): invalid input "
 							"seq charactor\n"
 							);
@@ -373,16 +443,60 @@ class FASTA_PE
 					}
 
 					break;
+				case State::plus:
+					if (it->size() == 0 || it->at(0) != '+')
+						throw FASTQException(
+						"ERROR: get_obj(): There is not \'+\' "
+						"after seq line\n"
+						);
+					else
+						if (it->size() > 1 && fq.name != it->substr(1))
+						throw FASTQException(
+							"ERROR: get_obj(): There is string"
+							"after \'+\' but not equal to string "
+							"after \'@\'\n"
+						);
+
+					break;
+				case State::qual:
+					if constexpr (std::is_same_v<
+							QualType, 
+							biovoltron::vector<biovoltron::char_type>
+						>)
+					{
+						fq.seq_qual.reserve(it->size());
+						fq.seq_qual.assign(it->cbegin(), it->cend());
+					}
+					else
+						fq.seq_qual = std::move(*it);
+
+					if (fq.seq_qual.size() != fq.seq.size())
+						throw FASTQException(
+						"ERROR: get_obj(): length of seq_qual field "
+						"is different to length of seq field\n"
+						);
+
+
+					for (auto i : fq.seq_qual)
+						if (i > '~' || i < '!')
+						{
+							throw FASTQException(
+							"ERROR: get_obj(): wrong charactor in "
+							"quality string\n"
+							);
+						}
 			}
 		}
 
-		return fa;
+		return fq;
     }
 
+
+
     /**
-     * @brief Can get data of this FASTA_PE object
+     * @brief Can get data of this FASTQ object
      *
-     * @return A string of data in fasta format
+     * @return A string of data in fastq format
      *
      * Concatenate string of 4 lines by order, and if there are data 
      * in n_base_info_table, change those sub-sequence back to 
@@ -393,74 +507,71 @@ class FASTA_PE
      */
     std::string to_string() const
     {
-        std::string buf(">");
+	std::string buf("@");
 
-        buf.reserve(seq.size() * 2);
-        buf.append(name);
-        buf.append("\n");
+	buf.reserve(seq.size() * 3);
+	buf.append(name);
+	buf.append("\n");
 
-        size_t seq_pos(buf.size());
+	size_t seq_pos(buf.size());
 
-        for (const auto i : seq)
-        {
-            switch (i)
-            {
-            case 'A':
-                buf.append("A");
-                break;
-            case 'C':
-                buf.append("C");
-                break;
-            case 'G':
-                buf.append("G");
-                break;
-            case 'T':
-                buf.append("T");
-                break;
-            default:
-                throw fastaException(
-                "ERROR: to_string(): invalid character in seq\n"
-                );
-            }
-        }
+	for (const auto i : seq)
+	{
+	    switch (i)
+	    {
+		case 'A':
+		    buf.append("A");
+		    break;
+		case 'C':
+		    buf.append("C");
+		    break;
+		case 'G':
+		    buf.append("G");
+		    break;
+		case 'T':
+		    buf.append("T");
+		    break;
+		default:
+		    throw FASTQException(
+			"ERROR: to_string(): invalid character in seq\n"
+		    );
+	    }
+	}
 
-        for (auto& i : n_base_info_table)
-            for (unsigned j(0); j < i.second; j++)
-                buf.at(seq_pos + i.first + j) = 'N';
+	for (auto& i : n_base_info_table)
+	    for (unsigned j(0); j < i.second; j++)
+		buf[seq_pos + i.first + j] = 'N';
 
-        return buf;
-    }
+	buf.append("\n+\n");
+	buf.append(seq_qual);
 
-    template <typename Iterator>
-    void to_iterator(Iterator it)
-    {
-        (*it) = ">" + std::move(name);
+	return buf;
     }
 
     /**
-     * @brief Convert vector of FASTA_PE to string then dump to an 
+     * @brief Convert vector of FASTQ to string then dump to an 
      * ostream
      *
-     * @param os An ostream to dump fasta format data
-     * @param v_fasta A vector<FASTA_PE>, which we want to dump them to 
-     * fasta format
+     * @param os An ostream to dump fastq format data
+     * @param v_fastq A vector<FASTQ>, which we want to dump them to 
+     * fastq format
      *
-     * Convert vector<FASTA_PE> to string by using range-for to append 
-     * each fasta string which generated by FASTA_PE::to_string() to a 
+     * Convert vector<FASTQ> to string by using range-for to append 
+     * each fastq string which generated by FASTQ::to_string() to a 
      * buffer. And write the buffer to os at the end.
      *
      * Time complexity: O(m * n)<br>
-     *	    \e m: size of v_fasta
-     *	    \e n: average length of seq of FASTA_PE objects
+     *	    \e m: size of v_fastq
+     *	    \e n: average length of seq of FASTQ objects
      *
-     * @sa FASTA_PE::to_string()
+     * @sa FASTQ::to_string()
      */
     static void dump(std::ostream& os, 
-	    const std::vector<FASTA_PE>& v_fasta)
+	    const std::vector<FASTQ>& v_fastq)
     {
 	std::string buf("");
 
-	for (const auto& i : v_fasta)
+	for (const auto& i : v_fastq)
 	{
 	    buf.append(i.to_string());
 	    buf.append("\n");
@@ -471,17 +582,17 @@ class FASTA_PE
     }
 
     /**
-     * @brief return a FASTA_PE object with the same name but have 
+     * @brief return a FASTQ object with the same name but have 
      * specified sub-sequence and sub-sequence_quality
      *
      * @param pos The start point of specified sub-sequence
      * @param count The length of specified sub-sequence, if (pos + 
      * count) is greater than size of sequence, count will change to 
      * (size of sequence - pos) automatically
-     * @return A FASTA_PE object with the same name like original one, 
+     * @return A FASTQ object with the same name like original one, 
      * but has sub-sequence and sub-sequence_quality
      *
-     * Generate a FASTA_PE object with the same name like origin, but
+     * Generate a FASTQ object with the same name like origin, but
      * sub-sequence and sub-sequence_quality are the specific part
      * of origin.<br>
      * Also modify n_base_info_table if there are continueous 
@@ -490,32 +601,33 @@ class FASTA_PE
      * Time complexity: O(n)<br>
      *	    \e n: size of n_base_info_table
      */
-    FASTA_PE substr(size_t pos, size_t count = -1) const
+    FASTQ substr(size_t pos, size_t count = -1) const
     {
 	if (pos >= seq.size())
-	    throw fastaException(
+	    throw FASTQException(
 		"ERROR: substr(): out_of_range_exception\n"
 	    );
 
-	FASTA_PE tmp;
-	const auto& fa_n(n_base_info_table);
+	FASTQ tmp;
+	const auto& fq_n(n_base_info_table);
 	size_t n_end, begin, end;
 
 	count = std::min(count, seq.size() - pos);
 
 	tmp.name = name;
 	tmp.seq = {seq.begin() + pos, seq.begin() + pos + count};
-	tmp.n_base_info_table.reserve(fa_n.size());
+	tmp.seq_qual = seq_qual.substr(pos, count);
+	tmp.n_base_info_table.reserve(fq_n.size());
 
-	for (size_t i(0); i < fa_n.size(); i++)
+	for (size_t i(0); i < fq_n.size(); i++)
 	{
-	    n_end = fa_n.at(i).first + fa_n.at(i).second;
+	    n_end = fq_n[i].first + fq_n[i].second;
 
-	    if (pos < fa_n.at(i).first)	begin = fa_n.at(i).first - pos;
+	    if (pos < fq_n[i].first)	begin = fq_n[i].first - pos;
 	    else if (pos >= n_end)	continue;
 	    else			begin = 0;
 
-	    if (pos + count < fa_n.at(i).first)	break;
+	    if (pos + count < fq_n[i].first)	break;
 	    else if (pos + count >= n_end)	end = n_end - pos;
 	    else				end = count;
 
@@ -538,31 +650,32 @@ class FASTA_PE
      * Time complexity: O(n)<br>
      *	    \e n: size of n_base_info_table
      *
-     * @sa FASTA_PE::substr()
+     * @sa FASTQ::substr()
      */
     void trim(size_t pos)
     {
 	if (pos > seq.size())
-	    throw fastaException(
+	    throw FASTQException(
 		"ERROR: trim(): out_of_range_exception\n"
 	    );
 
-	auto& fa_n(n_base_info_table);
+	auto& fq_n(n_base_info_table);
 	size_t n_end;
 
 	seq.resize(pos);
+	seq_qual.resize(pos);
 
-	for (size_t i(0); i < fa_n.size(); i++)
+	for (size_t i(0); i < fq_n.size(); i++)
 	{
-	    n_end = fa_n.at(i).first + fa_n.at(i).second;
+	    n_end = fq_n[i].first + fq_n[i].second;
 	    
 	    if (n_end <= pos)
 		continue;
-	    else if (n_end > pos && fa_n.at(i).first < pos)
-		fa_n.at(i).second = pos - fa_n.at(i).first;
+	    else if (n_end > pos && fq_n[i].first < pos)
+		fq_n[i].second = pos - fq_n[i].first;
 	    else
 	    {
-		fa_n.resize(i);
+		fq_n.resize(i);
 		break;
 	    }
 	}
@@ -589,7 +702,7 @@ class FASTA_PE
 	std::is_same<
 	    T, typename biovoltron::Sequence
 	>::value, Sequence
-    >::type get_antisence() const noexcept
+    >::type get_antisense() const noexcept
     {
 	Sequence s(seq.rbegin(), seq.rend());
 	s.flip();
@@ -615,7 +728,7 @@ class FASTA_PE
 	!std::is_same<
 	    T, typename biovoltron::Sequence
 	>::value, Sequence
-    >::type get_antisence() const noexcept
+    >::type get_antisense() const noexcept
     {
 	Sequence s(seq.rbegin(), seq.rend());
 
@@ -652,16 +765,28 @@ class FASTA_PE
     static unsigned long fast_rand()
     {
 	unsigned long t;
-	fast_rand_seed.at(0) ^= fast_rand_seed.at(0) << 16;
-	fast_rand_seed.at(0) ^= fast_rand_seed.at(0) >> 5;
-	fast_rand_seed.at(0) ^= fast_rand_seed.at(0) << 1;
+	fast_rand_seed[0] ^= fast_rand_seed[0] << 16;
+	fast_rand_seed[0] ^= fast_rand_seed[0] >> 5;
+	fast_rand_seed[0] ^= fast_rand_seed[0] << 1;
 
-	t = fast_rand_seed.at(0);
-	fast_rand_seed.at(0) = fast_rand_seed.at(1);
-	fast_rand_seed.at(1) = fast_rand_seed.at(2);
-	fast_rand_seed.at(2) = t ^ fast_rand_seed.at(0) ^ fast_rand_seed.at(1);
+	t = fast_rand_seed[0];
+	fast_rand_seed[0] = fast_rand_seed[1];
+	fast_rand_seed[1] = fast_rand_seed[2];
+	fast_rand_seed[2] = t ^ fast_rand_seed[0] ^ fast_rand_seed[1];
 
-	return fast_rand_seed.at(2);
+	return fast_rand_seed[2];
+    }
+
+    template <typename Iterator>
+    void to_iterator(Iterator it)
+    {
+        (*it) = "@" + std::move(name);
+        (*(it + 3)) = std::move(seq_qual);
+
+        for( std::size_t i = (*(it + 1)).size(); i > seq.size(); --i )
+        {
+            (*(it + 1)).pop_back();
+        }
     }
 };
 

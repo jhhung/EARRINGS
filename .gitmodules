@@ -1,0 +1,4 @@
+[submodule "submodules/Biovoltron"]
+	path = submodules/Biovoltron
+	url = ssh://git@gitlab.centrilliontech.com.tw:10022/GeneASIC/Biovoltron.git
+	branch = feat/tailor_parallel

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Biovoltron/format/fastq.hpp>
+#include <OldBiovoltron/format/fastq.hpp>
 
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/binary_oarchive.hpp>

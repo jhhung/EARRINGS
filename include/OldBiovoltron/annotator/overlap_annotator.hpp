@@ -3,7 +3,7 @@
 #include <tuple>
 #include <fstream>
 #include <type_traits>
-#include <Biovoltron/annotator/annotation.hpp>
+#include <OldBiovoltron/annotator/annotation.hpp>
 
 namespace biovoltron::annotator {
 template<class ALGORITHM>

@@ -4,7 +4,7 @@
 #pragma once
 #include <sstream>
 #include <vector>
-#include <Biovoltron/format/wig/exception.hpp>
+#include <OldBiovoltron/format/wig/exception.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/constants.hpp>

@@ -313,7 +313,7 @@ private:
   ) const
   {
     tail_pos_record.clear();
-    if (tail_begin_pos < 2 || tail_begin_pos == -1) 
+    if (tail_begin_pos < 2)   // or tail_begin_pos == -1 is contained
         return;
 
     int next_pos;

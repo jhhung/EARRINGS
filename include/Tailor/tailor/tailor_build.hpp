@@ -22,11 +22,11 @@
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/zlib.hpp>
-#include <Biovoltron/base_vector.hpp>
-#include <Biovoltron/indexer/FMIndex.hpp>
-//#include <Biovoltron/string_sorter/BucketSort.hpp>
-#include <Biovoltron/string_sorter/RadixSort.hpp>
-#include <Biovoltron/string_sorter/SBWT.hpp>
+#include <OldBiovoltron/base_vector.hpp>
+#include <OldBiovoltron/indexer/FMIndex.hpp>
+//#include <OldBiovoltron/string_sorter/BucketSort.hpp>
+#include <OldBiovoltron/string_sorter/RadixSort.hpp>
+#include <OldBiovoltron/string_sorter/SBWT.hpp>
 //#include <Tailor/tailor/tailor_index.hpp>
 #include <Tailor/tailor/tailor_search.hpp>
 #include <chrono>
