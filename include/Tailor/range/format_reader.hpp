@@ -3,7 +3,7 @@
 
 #include <istream>
 #include <mutex>
-#include <OldBiovoltron/format/fastq.hpp>
+#include <EARRINGS/fastq.hpp>
 #include <range/v3/all.hpp>
 
 namespace pipeline::range {
@@ -20,7 +20,7 @@ private:
     std::istream* sin_;
     //ranges::semiregular_box_t<Val> obj_;
     Val obj_;
-    
+
     struct cursor
     {
     private:
@@ -63,8 +63,8 @@ private:
 
 public:
     format_reader() = default;
-    format_reader(std::istream& sin)
-      : sin_(&sin), obj_{}, count_{0}
+    explicit format_reader(std::istream& sin)
+      : sin_(&sin), obj_()
     {
         this->next();
     }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <Tailor/tailor/searcher.hpp>
 #include <Tailor/tailor/paras.hpp>
 #include <Tailor/tailor/aligned_reads.hpp>
 #include <boost/filesystem.hpp>

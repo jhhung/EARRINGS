@@ -54,6 +54,8 @@ namespace EARRINGS {
     using biovoltron::FastqRecord<Encoded>::qual;
     NTable n_base_info_table;
 
+    Fastq() = default;
+
     Fastq(const EARRINGS::Fasta<Encoded, Sequence>& fa) {
       name = fa.name;
       if (name.front() == Fasta<>::START_SYMBOL) name[0] = START_SYMBOL;
