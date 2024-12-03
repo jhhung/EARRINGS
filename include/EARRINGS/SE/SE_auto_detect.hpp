@@ -76,7 +76,7 @@ std::pair<std::string, bool> seat_adapter_auto_detect(
 {
     std::vector<std::string> tails;
     biovoltron::Index<9> fm_index{12}, rc_fm_index{12};
-    std::ifstream fm_ifs{index_prefix + ".table"}, rc_fm_ifs{index_prefix + ".rc_table"};;
+    std::ifstream fm_ifs{index_prefix + ".table"}, rc_fm_ifs{index_prefix + ".rc_table"};
     fm_index.load(fm_ifs);
     rc_fm_index.load(rc_fm_ifs);
     biovoltron::Tailor tailor{fm_index, rc_fm_index};

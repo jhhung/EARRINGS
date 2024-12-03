@@ -39,8 +39,8 @@ namespace EARRINGS {
     }
 
     static int fast_rand() noexcept {
-      static std::mt19937 rng;
-      std::uniform_int_distribution<int> dist(0, 3);
+      static std::mt19937 rng(std::random_device{}());
+      static std::uniform_int_distribution<int> dist(0, 3);
       return dist(rng);
     }
 

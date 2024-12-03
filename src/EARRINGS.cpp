@@ -340,9 +340,39 @@ index once for a specific reference which is the source of the target reads.
 
         if (vm.count("ref_path") && vm.count("index_prefix"))
         {
-            tailor::build_tables build;
-            build(vm["ref_path"].as<std::string>()
-                , vm["index_prefix"].as<std::string>());
+            std::ifstream input(vm["ref_path"].as<std::string>());
+            if (!input.is_open()) {
+                throw std::runtime_error("Can't open input reference file\n");
+            }
+            std::vector<biovoltron::FastaRecord<true>> records;
+            biovoltron::FastaRecord<true> fa;
+            while (input >> fa) {
+                records.emplace_back(
+                        fa.name,
+                        biovoltron::Codec::to_istring(
+                                std::string_view(reinterpret_cast<const char *>(fa.seq.data()),
+                                                 fa.seq.size())
+                        )
+                );
+            }
+
+            biovoltron::Index index;
+            index.make_index(records);
+            std::ofstream table{vm["index_prefix"].as<std::string>() + ".table"};
+            index.save(table);
+
+            std::vector<biovoltron::FastaRecord<true>> rc_records;
+            for (const auto& record : records) {
+                rc_records.emplace_back(
+                        record.name,
+                        biovoltron::Codec::rev_comp(record.seq)
+                );
+            }
+
+            biovoltron::Index rc_index;
+            rc_index.make_index(rc_records);
+            std::ofstream rc_table{vm["index_prefix"].as<std::string>() + ".rc_table"};
+            rc_index.save(rc_table);
         }
     } 
     catch (std::exception& e) 
