@@ -3,12 +3,12 @@
 
 #include <istream>
 #include <mutex>
-#include <EARRINGS/fastq.hpp>
+#include <biovoltron/file_io/fasta.hpp>
 #include <range/v3/all.hpp>
 
 namespace pipeline::range {
 
-template <class Val = biovoltron::format::FASTQ<std::string, std::string>>
+template <class Val = biovoltron::FastqRecord<>>
 struct format_reader
   : ranges::view_facade<format_reader<Val>, ranges::unknown>
 {

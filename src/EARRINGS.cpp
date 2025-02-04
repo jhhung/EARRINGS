@@ -28,7 +28,7 @@ int main(int argc, const char* argv[])
     +--------+
     |EARRINGS|
     +--------+
-    EARRINGS v)" + ver + 
+    EARRINGS v)" + ver +
     R"( is an adapter trimmer with no a priori knowledge of adapter sequences.
     Usage:
 
@@ -81,7 +81,7 @@ int main(int argc, const char* argv[])
         }
 
         auto adapter_info = seat_adapter_auto_detect(ifs_name[0], para.nThreads);  // auto-detect adapter 
-        
+
         // input, output, min_len, thread, adapter, quiet flag
         std::vector<const char*> skewer_argv( is_sensitive ? 12 : 10 );
         skewer_argv[0] = "skewer";  // skewer is required to install beforehead.
@@ -143,7 +143,7 @@ int main(int argc, const char* argv[])
                                                     ifs_name[0]
                                                   , tmp_name1
                                                   , tmp_name2);
-            
+
             // check if the number of BAM records is gt than DETECT_N_READS
             ifs_name[0] = tmp_name1;
             ifs_name[1] = tmp_name2;
@@ -193,7 +193,7 @@ int main(int argc, const char* argv[])
             // input, output, min_len, thread, adapter, quiet flag
             std::vector<const char*> skewer_argv( 12 );
             std::string out_len = ofs_name[0] + "_len" + std::to_string(seed_len);
-            
+
             skewer_argv[0] = "skewer";  // skewer is required to install beforehead.
             skewer_argv[1] = ifs_name[0].c_str(); // input
             skewer_argv[2] = "-o";  // output
@@ -209,7 +209,7 @@ int main(int argc, const char* argv[])
 
             skewer::main(skewer_argv.size(), skewer_argv.data());
             freopen("/dev/tty", "a", stdout);
-            
+
             std::vector<std::string> split;
             boost::iter_split( split, buffer, boost::algorithm::first_finder( "%) t" ));
             boost::iter_split( split, split[0], boost::algorithm::first_finder( "(" ));
@@ -344,16 +344,10 @@ index once for a specific reference which is the source of the target reads.
             if (!input.is_open()) {
                 throw std::runtime_error("Can't open input reference file\n");
             }
-            std::vector<biovoltron::FastaRecord<true>> records;
-            biovoltron::FastaRecord<true> fa;
+            std::vector<biovoltron::FastaRecord<>> records;
+            biovoltron::FastaRecord<> fa;
             while (input >> fa) {
-                records.emplace_back(
-                        fa.name,
-                        biovoltron::Codec::to_istring(
-                                std::string_view(reinterpret_cast<const char *>(fa.seq.data()),
-                                                 fa.seq.size())
-                        )
-                );
+                records.emplace_back(fa.name, fa.seq);
             }
 
             biovoltron::Index index;
@@ -361,12 +355,9 @@ index once for a specific reference which is the source of the target reads.
             std::ofstream table{vm["index_prefix"].as<std::string>() + ".table"};
             index.save(table);
 
-            std::vector<biovoltron::FastaRecord<true>> rc_records;
+            std::vector<biovoltron::FastaRecord<>> rc_records;
             for (const auto& record : records) {
-                rc_records.emplace_back(
-                        record.name,
-                        biovoltron::Codec::rev_comp(record.seq)
-                );
+                rc_records.emplace_back(fa.name, biovoltron::Codec::rev_comp(fa.seq));
             }
 
             biovoltron::Index rc_index;
@@ -374,16 +365,16 @@ index once for a specific reference which is the source of the target reads.
             std::ofstream rc_table{vm["index_prefix"].as<std::string>() + ".rc_table"};
             rc_index.save(rc_table);
         }
-    } 
-    catch (std::exception& e) 
+    }
+    catch (std::exception& e)
     {
-        std::cerr << "Error: " << e.what() << std::endl 
+        std::cerr << "Error: " << e.what() << std::endl
             << opts << std::endl;
         exit (1);
-    } 
-    catch (...) 
+    }
+    catch (...)
     {
-        std::cerr << "Unknown error!" << std::endl 
+        std::cerr << "Unknown error!" << std::endl
             << opts << std::endl;
         exit (1);
     }
@@ -407,7 +398,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
 > EARRINGS single -p earrings_idx -1 input1.fq.gz
 *********************************************************************************
     )";
-    
+
     boost::program_options::options_description opts {usage};
     try
     {
@@ -418,7 +409,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             "The index prefix for pre-built index table. (required)")
         ("input1,1",
          boost::program_options::
-            value<std::string>(&ifs_name[0])->required(), 
+            value<std::string>(&ifs_name[0])->required(),
             "The file path of Single-End reads. (required)")
         ("help,h",
             "Display help message and exit.")
@@ -440,7 +431,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             "Skip the read if the length of the read is less than --min_length after trimming.")
         ("thread,t",
          boost::program_options::
-            value<size_t>()->default_value(1), 
+            value<size_t>()->default_value(1),
             "The number of threads used to run the program.")
         ("max_align,M",
          boost::program_options::
@@ -478,7 +469,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             "Estimate the size of UMI sequences, results will be printed to console by "
             "default.");
 
-        
+
         boost::program_options::variables_map vm;
         boost::program_options::store (
             boost::program_options::command_line_parser(
@@ -497,7 +488,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         if (vm.count("index_prefix"))
         {
             index_prefix = vm["index_prefix"].as<std::string>();
-            if (!std::filesystem::exists(index_prefix + ".table") || 
+            if (!std::filesystem::exists(index_prefix + ".table") ||
                 !std::filesystem::exists(index_prefix + ".rc_table"))
             {
                 throw std::runtime_error(
@@ -506,12 +497,12 @@ Skewer with adapter parameters passed by EARRINGS automatically.
                     );
             }
         }
-        
+
         thread_num = vm["thread"].as<size_t>();
         if (thread_num > 32) thread_num = 32;
 
         min_length = vm["min_length"].as<size_t>();
-        
+
         if (vm.count("seed_len"))
         {
             seed_len = vm["seed_len"].as<size_t>();
@@ -578,8 +569,8 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             exit(1);
         }
 
-        if (is_bam || 
-            ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() || 
+        if (is_bam ||
+            ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() ||
             ifs_name[0].find( fasta_ext ) == ifs_name[0].length() - fasta_ext.length() )
         {
             ofs_name[0] += ".fasta";
@@ -600,15 +591,15 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         std::cout << "Default adapter: " << DEFAULT_ADAPTER1 << std::endl;
         std::cout << std::noboolalpha;
     }
-    catch (std::exception& e) 
+    catch (std::exception& e)
     {
-        std::cerr << "Error: " << e.what() << std::endl 
+        std::cerr << "Error: " << e.what() << std::endl
             << opts << std::endl;
         exit (1);
-    } 
-    catch (...) 
+    }
+    catch (...)
     {
-        std::cerr << "Unknown error!" << std::endl 
+        std::cerr << "Unknown error!" << std::endl
             << opts << std::endl;
         exit (1);
     }
@@ -630,22 +621,22 @@ adapter removed FastQ/FastA format output files (dual files).
 > EARRINGS paired -1 input1.fq -2 input2.fq
 > EARRINGS paired -1 input1.fq.gz -2 input2.fq.gz
 *******************************************************************************************
-)"; 
-    
+)";
+
     boost::program_options::options_description opts {usage};
-	
-    try 
+
+    try
     {
         opts.add_options ()
-        ("input1,1", 
+        ("input1,1",
          boost::program_options::
-            value<std::string>(&ifs_name[0])->required(), 
+            value<std::string>(&ifs_name[0])->required(),
             "The Paired-end reads input file 1.")
-        ("input2,2", 
+        ("input2,2",
          boost::program_options::
-            value<std::string>(&ifs_name[1])->required(), 
+            value<std::string>(&ifs_name[1])->required(),
             "The Paired-end reads input file 2.")
-        ("help,h", 
+        ("help,h",
             "Display help message and exit.")
         ("output,o",
          boost::program_options::
@@ -659,9 +650,9 @@ adapter removed FastQ/FastA format output files (dual files).
          boost::program_options::
             value<std::string>(&DEFAULT_ADAPTER2)->default_value(DEFAULT_ADAPTER2),
             "Alternative adapter 2 if auto-detect mechanism fails.")
-        ("thread,t", 
+        ("thread,t",
          boost::program_options::
-            value<size_t>()->default_value(1), 
+            value<size_t>()->default_value(1),
             "The number of threads used to run the program.")
         ("min_length,m",
          boost::program_options::
@@ -684,13 +675,13 @@ adapter removed FastQ/FastA format output files (dual files).
             value<float>()->default_value(0.03),
             "Prune factor used when assembling adapters using the de Bruijn graph. Kmer "
             "frequency lower than the prune factor will be skipped.")
-        ("sensitive", 
+        ("sensitive",
             "By default, minimum number of kmers must exceed 10 during assembly adapters. "
             "However, if user have confidence that the dataset contains adapters, sensitive "
             "mode would be more suitable.\n"
             "Under sensitive mode, minimum number of kmers (--prune_factor) would not be "
             "restricted.");
-        
+
         boost::program_options::variables_map vm;
         boost::program_options::store (
             boost::program_options::command_line_parser(
@@ -757,7 +748,7 @@ adapter removed FastQ/FastA format output files (dual files).
 
         ofs_name[1] = ofs_name[0];
         if (is_bam ||
-            ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() || 
+            ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() ||
             ifs_name[0].find( fasta_ext ) == ifs_name[0].length() - fasta_ext.length() )
         {
             ofs_name[0] += "_1.fasta";
@@ -782,15 +773,15 @@ adapter removed FastQ/FastA format output files (dual files).
         std::cout << "Default adapter2: " << DEFAULT_ADAPTER2 << std::endl;
         std::cout << std::noboolalpha;
     }
-    catch (std::exception& e) 
+    catch (std::exception& e)
     {
-        std::cerr << "Error: " << e.what() << std::endl 
+        std::cerr << "Error: " << e.what() << std::endl
             << opts << std::endl;
         exit (1);
-    } 
-    catch (...) 
+    }
+    catch (...)
     {
-        std::cerr << "Unknown error!" << std::endl 
+        std::cerr << "Unknown error!" << std::endl
             << opts << std::endl;
         exit (1);
     }
@@ -814,7 +805,7 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
 > EARRINGS smallRNA -p earrings_idx -1 input1.fq.gz
 *********************************************************************************
     )";
-    
+
     boost::program_options::options_description opts {usage};
     try
     {
@@ -823,11 +814,11 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
          boost::program_options::
             value<std::string>()->required(),
             "The index prefix for pre-built index table. (required)")
-        ("input1,1", 
+        ("input1,1",
          boost::program_options::
-            value<std::string>(&ifs_name[0])->required(), 
+            value<std::string>(&ifs_name[0])->required(),
             "The file path of Single-End reads. (required)")
-        ("help,h", 
+        ("help,h",
             "Display help message and exit.")
         ("min_seed_len,s",
          boost::program_options::
@@ -845,9 +836,9 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
          boost::program_options::
             value<size_t>()->default_value(0),
             "Skip the read if the length of the read is less than --min_length after trimming.")
-        ("thread,t", 
+        ("thread,t",
          boost::program_options::
-            value<size_t>()->default_value(1), 
+            value<size_t>()->default_value(1),
             "The number of threads used to run the program.")
         ("max_align,M",
          boost::program_options::
@@ -862,7 +853,7 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
          boost::program_options::
             value<std::string>(&DEFAULT_ADAPTER1)->default_value(DEFAULT_ADAPTER1),
             "Alternative adapter if auto-detect mechanism fails.")
-        ("UMI,u", 
+        ("UMI,u",
             "Estimate the size of UMI sequences, results will be printed to console by "
             "default.");
 
@@ -884,7 +875,7 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
         if (vm.count("index_prefix"))
         {
             index_prefix = vm["index_prefix"].as<std::string>();
-            if (!std::filesystem::exists(index_prefix + ".table") || 
+            if (!std::filesystem::exists(index_prefix + ".table") ||
                 !std::filesystem::exists(index_prefix + ".rc_table"))
             {
                 throw std::runtime_error(
@@ -893,13 +884,13 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
                     );
             }
         }
-        
+
         thread_num = vm["thread"].as<size_t>();
         if (thread_num > 32) thread_num = 32;
 
         is_sensitive = true;
         min_length = vm["min_length"].as<size_t>();
-        
+
         if (vm.count("min_seed_len"))
         {
             min_seed_len = vm["min_seed_len"].as<size_t>();
@@ -956,8 +947,8 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
             exit(1);
         }
 
-        if (is_bam || 
-            ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() || 
+        if (is_bam ||
+            ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() ||
             ifs_name[0].find( fasta_ext ) == ifs_name[0].length() - fasta_ext.length() )
         {
             ofs_name[0] += ".fasta";
@@ -978,15 +969,15 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
         std::cout << "Default adapter: " << DEFAULT_ADAPTER1 << std::endl;
         std::cout << std::noboolalpha;
     }
-    catch (std::exception& e) 
+    catch (std::exception& e)
     {
-        std::cerr << "Error: " << e.what() << std::endl 
+        std::cerr << "Error: " << e.what() << std::endl
             << opts << std::endl;
         exit (1);
-    } 
-    catch (...) 
+    }
+    catch (...)
     {
-        std::cerr << "Unknown error!" << std::endl 
+        std::cerr << "Unknown error!" << std::endl
             << opts << std::endl;
         exit (1);
     }
@@ -1008,16 +999,16 @@ adapter sequence via Skewer (default as sensitive mode).
 > EARRINGS skewer -1 input1.fq.gz -a adapter_seq
 *********************************************************************************
     )";
-    
+
     boost::program_options::options_description opts {usage};
     try
     {
         opts.add_options ()
-        ("input1,1", 
+        ("input1,1",
          boost::program_options::
-            value<std::string>(&ifs_name[0])->required(), 
+            value<std::string>(&ifs_name[0])->required(),
             "The file path of Single-End reads. (required)")
-        ("help,h", 
+        ("help,h",
             "Display help message and exit.")
         ("output,o",
          boost::program_options::
@@ -1027,9 +1018,9 @@ adapter sequence via Skewer (default as sensitive mode).
          boost::program_options::
             value<size_t>()->default_value(0),
             "Skip the read if the length of the read is less than --min_length after trimming.")
-        ("thread,t", 
+        ("thread,t",
          boost::program_options::
-            value<size_t>()->default_value(1), 
+            value<size_t>()->default_value(1),
             "The number of threads used to run the program.")
         ("adapter,a",
          boost::program_options::
@@ -1050,7 +1041,7 @@ adapter sequence via Skewer (default as sensitive mode).
             std::cout << usage << "\n";
             exit(0);
         }
-        
+
         thread_num = vm["thread"].as<size_t>();
         if (thread_num > 32) thread_num = 32;
 
@@ -1083,8 +1074,8 @@ adapter sequence via Skewer (default as sensitive mode).
             exit(1);
         }
 
-        if (is_bam || 
-            ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() || 
+        if (is_bam ||
+            ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() ||
             ifs_name[0].find( fasta_ext ) == ifs_name[0].length() - fasta_ext.length() )
         {
             ofs_name[0] += ".fasta";
@@ -1103,15 +1094,15 @@ adapter sequence via Skewer (default as sensitive mode).
         std::cout << "Trimming adapter: " << DEFAULT_ADAPTER1 << std::endl;
         std::cout << std::noboolalpha;
     }
-    catch (std::exception& e) 
+    catch (std::exception& e)
     {
-        std::cerr << "Error: " << e.what() << std::endl 
+        std::cerr << "Error: " << e.what() << std::endl
             << opts << std::endl;
         exit (1);
-    } 
-    catch (...) 
+    }
+    catch (...)
     {
-        std::cerr << "Unknown error!" << std::endl 
+        std::cerr << "Unknown error!" << std::endl
             << opts << std::endl;
         exit (1);
     }
