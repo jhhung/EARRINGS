@@ -38,5 +38,6 @@ find_package(ZLIB CONFIG REQUIRED)
 
 set(BIOVOLTRON_TESTS OFF)
 add_subdirectory(${CMAKE_SOURCE_DIR}/submodules/Biovoltron)
+include_directories(${CMAKE_SOURCE_DIR}/submodules/Biovoltron/submodules/htslib)
 
 include(${SCREW_DIR}/hunter_root.cmake)
