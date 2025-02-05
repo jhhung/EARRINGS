@@ -1,18 +1,20 @@
 #pragma once
-#include <string>
 #include <biovoltron/algo/align/tailor/tailor.hpp>
 #include <biovoltron/algo/align/tailor/index.hpp>
-#include <Tailor/range.hpp>
 #include <experimental/vector>
 #include <EARRINGS/graph.hpp>
 #include <EARRINGS/common.hpp>
 #include <EARRINGS/assemble_adapters.hpp>
+#include <EARRINGS/format_reader.hpp>
 #include <Nucleona/range/v3_impl.hpp>
 #include <Nucleona/parallel/thread_pool.hpp>
 #include <Nucleona/parallel/asio_pool.hpp>
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
+#include <boost/algorithm/string/iter_find.hpp>
+#include <boost/algorithm/string/finder.hpp>
+#include <string>
 #include <cmath>
 #include <fstream>
 #include <atomic>
@@ -44,7 +46,7 @@ std::vector<std::string> tailor_pipeline(IFStream&& ifs
                                        , size_t num_reads)
 {
     auto tp = nucleona::parallel::make_asio_pool(thread_num);
-    constexpr pipeline::range::format_reader_fn<biovoltron::FastqRecord<>> format_reader{};
+    constexpr EARRINGS::format_reader_fn<biovoltron::FastqRecord<>> format_reader{};
 
     std::vector<std::string> tails;
     tails.reserve(num_reads);
