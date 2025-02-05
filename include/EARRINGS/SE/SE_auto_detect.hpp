@@ -5,7 +5,7 @@
 #include <EARRINGS/graph.hpp>
 #include <EARRINGS/common.hpp>
 #include <EARRINGS/assemble_adapters.hpp>
-#include <EARRINGS/format_reader.hpp>
+#include <EARRINGS/SE/format_reader.hpp>
 #include <Nucleona/range/v3_impl.hpp>
 #include <Nucleona/parallel/thread_pool.hpp>
 #include <Nucleona/parallel/asio_pool.hpp>
