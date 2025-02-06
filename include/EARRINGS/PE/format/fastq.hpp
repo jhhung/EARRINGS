@@ -7,11 +7,11 @@
 #include <stdexcept>
 #include <random>
 #include <biovoltron/utility/istring.hpp>
-#include <OldBiovoltron/base_vector.hpp>
+#include <EARRINGS/PE/base_vector/base_vector.hpp>
 
 using namespace biovoltron;
 
-namespace EARRINGS {
+namespace EARRINGS::format {
     class FastqException : public std::runtime_error {
     public:
         FastqException(const std::string &msg)
@@ -338,7 +338,7 @@ namespace EARRINGS {
         {
             T s(seq.rbegin(), seq.rend());
 
-            if constexpr (std::is_same<T, biovoltron::Sequence>::value) {
+            if constexpr (std::is_same<T, EARRINGS::Sequence>::value) {
                 s.flip();
             } else {
                 for (auto& i : s) {

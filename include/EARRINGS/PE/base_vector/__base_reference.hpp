@@ -15,7 +15,7 @@
 */
 
 
-namespace biovoltron
+namespace EARRINGS
 {
 /// the vector accept char as the unit of input
 typedef char          char_type;

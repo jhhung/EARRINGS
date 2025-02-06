@@ -2,8 +2,8 @@
 
 #include <EARRINGS/common.hpp>
 #include <EARRINGS/PE/task_processor.hpp>
-#include <EARRINGS/fasta.hpp>
-#include <EARRINGS/fastq.hpp>
+#include <EARRINGS/PE/format/fasta.hpp>
+#include <EARRINGS/PE/format/fastq.hpp>
 #include <Nucleona/parallel/asio_pool.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <tuple>
@@ -11,8 +11,9 @@
 
 using namespace EARRINGS;
 using namespace nucleona::parallel;
-using BitStr = biovoltron::vector<
-        biovoltron::char_type,
+
+using BitStr = EARRINGS::vector<
+        EARRINGS::char_type,
         simdpp::aligned_allocator<simdpp::uint8 < 16>, 16>
 >;
 
@@ -41,18 +42,18 @@ namespace EARRINGS {
             record_line = 4;
             if (is_gz_input) {
                 if (is_gz_output) {
-                    EARRINGS::TaskProcessor<EARRINGS::Fastq, BitStr, BIO_filtering_istream, BIO_filtering_ostream> INIT_TASK_PROCESSOR;
+                    EARRINGS::TaskProcessor<EARRINGS::format::Fastq, BitStr, BIO_filtering_istream, BIO_filtering_ostream> INIT_TASK_PROCESSOR;
                     task_processor.process();
                 } else {
-                    EARRINGS::TaskProcessor<EARRINGS::Fastq, BitStr, BIO_filtering_istream, std::ofstream> INIT_TASK_PROCESSOR;
+                    EARRINGS::TaskProcessor<EARRINGS::format::Fastq, BitStr, BIO_filtering_istream, std::ofstream> INIT_TASK_PROCESSOR;
                     task_processor.process();
                 }
             } else {
                 if (is_gz_output) {
-                    EARRINGS::TaskProcessor<EARRINGS::Fastq, BitStr, std::ifstream, BIO_filtering_ostream> INIT_TASK_PROCESSOR;
+                    EARRINGS::TaskProcessor<EARRINGS::format::Fastq, BitStr, std::ifstream, BIO_filtering_ostream> INIT_TASK_PROCESSOR;
                     task_processor.process();
                 } else {
-                    EARRINGS::TaskProcessor<EARRINGS::Fastq, BitStr, std::ifstream, std::ofstream> INIT_TASK_PROCESSOR;
+                    EARRINGS::TaskProcessor<EARRINGS::format::Fastq, BitStr, std::ifstream, std::ofstream> INIT_TASK_PROCESSOR;
                     task_processor.process();
                 }
             }
@@ -60,18 +61,18 @@ namespace EARRINGS {
             record_line = 2;
             if (is_gz_input) {
                 if (is_gz_output) {
-                    EARRINGS::TaskProcessor<EARRINGS::Fasta, BitStr, BIO_filtering_istream, BIO_filtering_ostream> INIT_TASK_PROCESSOR;
+                    EARRINGS::TaskProcessor<EARRINGS::format::Fasta, BitStr, BIO_filtering_istream, BIO_filtering_ostream> INIT_TASK_PROCESSOR;
                     task_processor.process();
                 } else {
-                    EARRINGS::TaskProcessor<EARRINGS::Fasta, BitStr, BIO_filtering_istream, std::ofstream> INIT_TASK_PROCESSOR;
+                    EARRINGS::TaskProcessor<EARRINGS::format::Fasta, BitStr, BIO_filtering_istream, std::ofstream> INIT_TASK_PROCESSOR;
                     task_processor.process();
                 }
             } else {
                 if (is_gz_output) {
-                    EARRINGS::TaskProcessor<EARRINGS::Fasta, BitStr, std::ifstream, BIO_filtering_ostream> INIT_TASK_PROCESSOR;
+                    EARRINGS::TaskProcessor<EARRINGS::format::Fasta, BitStr, std::ifstream, BIO_filtering_ostream> INIT_TASK_PROCESSOR;
                     task_processor.process();
                 } else {
-                    EARRINGS::TaskProcessor<EARRINGS::Fasta, BitStr, std::ifstream, std::ofstream> INIT_TASK_PROCESSOR;
+                    EARRINGS::TaskProcessor<EARRINGS::format::Fasta, BitStr, std::ifstream, std::ofstream> INIT_TASK_PROCESSOR;
                     task_processor.process();
                 }
             }

@@ -1,11 +1,8 @@
 #pragma once
 
-#include <vector>
 #include <string>
 #include <utility>
 #include <fstream>
-#include <EARRINGS/common.hpp>
-#include <EARRINGS/fasta.hpp>
 #include <htslib/sam.h>
 #include <biovoltron/utility/istring.hpp>
 
