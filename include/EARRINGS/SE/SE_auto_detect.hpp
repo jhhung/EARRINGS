@@ -61,8 +61,9 @@ std::vector<std::string> tailor_pipeline(IFStream&& ifs
                 return tailor.search(biovoltron::FastqRecord<>{query.name, query.seq, std::string(query.seq.size(), 'I')});
             }
         })
-        | ranges::view::transform([&tails](auto &&alignment) {
-            if (!alignment.hits.empty()) {  // alignment.tail_pos >= 0
+        | ranges::view::transform([&tails](auto &&alignment_pair) {
+            auto& alignment = alignment_pair.first.hits.empty() ? alignment_pair.second : alignment_pair.first;
+            if (!alignment.hits.empty()) {
                 tails.emplace_back(alignment.seq.substr(alignment.seq.length() - alignment.tail_pos - 1));
             }
             return alignment;
