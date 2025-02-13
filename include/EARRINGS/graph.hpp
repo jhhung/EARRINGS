@@ -60,7 +60,7 @@ private:
 public:
     static constexpr auto NUM_PATHS = 32;
     //static constexpr auto KMER_SIZE = 10;
-    
+
     static auto get_dup_kmers(std::string_view seq, std::size_t size)
     {
         std::set<std::string_view> all_kmers, dup_kmers;
@@ -155,7 +155,7 @@ public:
         // get iterator's out edges of a given vertices
         for (auto e : boost::make_iterator_range(boost::out_edges(u, g)))
         {
-            // given an edge, get the targeting vertex that the edge is pointing to 
+            // given an edge, get the targeting vertex that the edge is pointing to
             auto v = boost::target(e, g);
             // every vertex contains only one character (except for the source vertex)
             if (g[v].kmer.back() == kmer.back())
@@ -213,20 +213,19 @@ public:
         std::vector<std::string> adapters;
         // sort according to the count of source vertex
         std::sort(paths.begin(), paths.end(),
-                [this](const auto& lhs, const auto& rhs)
-                {
-                    // lhs[0]/rhs[0] -> source
-                    for (auto lhs_e : boost::make_iterator_range(boost::out_edges(lhs[0], g)))
-                    {
-                        for (auto rhs_e : boost::make_iterator_range(boost::out_edges(rhs[0], g)))
-                        {
-                            return g[lhs_e].count > g[rhs_e].count;
-                        }
-                    }
+                  [this](const auto& lhs, const auto& rhs)
+                  {
+                      size_t lhs_max_count = 0, rhs_max_count = 0;
+                      for (auto lhs_e : boost::make_iterator_range(boost::out_edges(lhs[0], g))) {
+                          lhs_max_count = std::max(lhs_max_count, g[lhs_e].count);
+                      }
+                      for (auto rhs_e : boost::make_iterator_range(boost::out_edges(rhs[0], g))) {
+                          rhs_max_count = std::max(rhs_max_count, g[rhs_e].count);
+                      }
 
-                    //return lhs.size() > rhs.size();
-                }); 
-        
+                      return lhs_max_count > rhs_max_count;
+                  });
+
         for (const auto& path : paths)
         {
             auto u = path[0];
@@ -237,7 +236,7 @@ public:
                 seq += g[v].kmer.back();
                 u = v;
             }
-            adapters.emplace_back(std::move(seq));
+            adapters.emplace_back(seq);
         }
 
         return adapters;

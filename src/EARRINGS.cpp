@@ -8,8 +8,7 @@
 #include <EARRINGS/PE/PE_trimmer.hpp>
 #include <EARRINGS/estimate_adapter_from_BAMS.hpp>
 #include <EARRINGS/common.hpp>
-#include "skewer/main.hpp"
-#include "skewer/parameter.h"
+#include <biovoltron/applications/adapter_trimmer/single_end/skewer/main.hpp>
 
 void init_single(int argc, const char* argv[]);
 void init_paired(int argc, const char* argv[]);
@@ -184,7 +183,10 @@ int main(int argc, const char* argv[])
         for (seed_len = min_seed_len; seed_len <= max_seed_len; ++seed_len)
         {
             char buffer[2560];
-            freopen("/dev/null", "a", stdout);
+            if (!freopen("/dev/null", "a", stdout)) {
+                perror("Failed to redirect stdout to /dev/null");
+                return EXIT_FAILURE;
+            }
             setbuf(stdout, buffer);
 
             auto adapter_info = seat_adapter_auto_detect(ifs_name[0], para.nThreads);  // auto-detect adapter
@@ -208,7 +210,10 @@ int main(int argc, const char* argv[])
             skewer_argv[11] = std::get<0>(adapter_info).c_str();
 
             skewer::main(skewer_argv.size(), skewer_argv.data());
-            freopen("/dev/tty", "a", stdout);
+            if (!freopen("/dev/tty", "a", stdout)) {
+                perror("Failed to redirect stdout to /dev/null");
+                return EXIT_FAILURE;
+            }
 
             std::vector<std::string> split;
             boost::iter_split( split, buffer, boost::algorithm::first_finder( "%) t" ));

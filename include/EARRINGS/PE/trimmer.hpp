@@ -18,8 +18,8 @@
 #include <simdpp/simd.h>
 #include <algorithm>
 
-using SINGLE = boost::mpl::string<'SING', 'LE'>;
-using PAIRED = boost::mpl::string<'PAIR', 'ED'>;
+using SINGLE = boost::mpl::string<'S', 'I', 'N', 'G', 'L', 'E'>;
+using PAIRED = boost::mpl::string<'P', 'A', 'I', 'R', 'E', 'D'>;
 
 namespace EARRINGS
 {
