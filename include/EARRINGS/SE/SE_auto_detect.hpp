@@ -6,9 +6,6 @@
 #include <EARRINGS/common.hpp>
 #include <EARRINGS/assemble_adapters.hpp>
 #include <EARRINGS/SE/format_reader.hpp>
-#include <Nucleona/range/v3_impl.hpp>
-#include <Nucleona/parallel/thread_pool.hpp>
-#include <Nucleona/parallel/asio_pool.hpp>
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
@@ -19,6 +16,7 @@
 #include <fstream>
 #include <atomic>
 #include <utility>
+#include <ranges>
 
 using namespace EARRINGS;
 namespace EARRINGS
@@ -32,7 +30,7 @@ void get_reads(std::istream& is, std::vector<FORMAT>& buf, size_t num_reads)
 		buf.emplace_back(f);
 		if (buf.size() == num_reads)
 			break;
-	} 
+	}
 
 }
 
@@ -45,30 +43,34 @@ std::vector<std::string> tailor_pipeline(IFStream&& ifs
                                        , Tailor&& tailor
                                        , size_t num_reads)
 {
-    auto tp = nucleona::parallel::make_asio_pool(thread_num);
     constexpr EARRINGS::format_reader_fn<biovoltron::FastqRecord<>> format_reader{};
 
     std::vector<std::string> tails;
     tails.reserve(num_reads);
     size_t counter(0);
     while (ifs.good() && tails.size() < 3000 && counter < 3) {
-        ifs
-        | format_reader()
-        | ranges::view::transform([&tailor](auto &&query) {
-            if (is_fastq) {
-                return tailor.search(query);
-            } else {
-                return tailor.search(biovoltron::FastqRecord<>{query.name, query.seq, std::string(query.seq.size(), 'I')});
-            }
-        })
-        | ranges::view::transform([&tails](auto &&alignment_pair) {
-            auto& alignment = alignment_pair.first.hits.empty() ? alignment_pair.second : alignment_pair.first;
-            if (!alignment.hits.empty()) {
-                tails.emplace_back(alignment.seq.substr(alignment.seq.length() - alignment.tail_pos - 1));
-            }
-            return alignment;
-        })
-        | nucleona::range::endp;
+        ranges::for_each(
+                ifs
+                | format_reader()
+                | ranges::view::transform([&tailor](auto &&query) {
+                    return tailor.search(
+                            is_fastq
+                            ? query
+                            : biovoltron::FastqRecord<>{query.name, query.seq, std::string(query.seq.size(), 'I')}
+                    );
+                })
+                | ranges::view::filter([](auto &&alignment_pair) {
+                    return !alignment_pair.first.hits.empty() || !alignment_pair.second.hits.empty();
+                })
+                | ranges::view::transform([&tails](auto &&alignment_pair) {
+                    auto &alignment = alignment_pair.first.hits.empty() ? alignment_pair.second : alignment_pair.first;
+                    if (!alignment.hits.empty()) {
+                        tails.emplace_back(alignment.seq.substr(alignment.seq.length() - alignment.tail_pos - 1));
+                    }
+                    return alignment;
+                }),
+                [](auto &&) {}
+        );
         counter++;
     }
 
@@ -76,7 +78,7 @@ std::vector<std::string> tailor_pipeline(IFStream&& ifs
 }
 
 
-std::pair<std::string, bool> seat_adapter_auto_detect( 
+std::pair<std::string, bool> seat_adapter_auto_detect(
                                       std::string& reads_path
                                     , size_t thread_num = 1
                                     )
@@ -143,7 +145,7 @@ std::pair<std::string, bool> seat_adapter_auto_detect(
         {
             adapter = adapter.substr(0, 32);
         }
-        
+
         std::cout << "adapter found: " << adapter << '\n';
     }
 

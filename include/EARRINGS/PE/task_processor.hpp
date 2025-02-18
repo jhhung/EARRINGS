@@ -10,6 +10,7 @@
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
+#include <biovoltron/utility/threadpool/threadpool.hpp>
 #include <tuple>
 #include <string_view>
 #include <algorithm>
@@ -143,12 +144,12 @@ namespace EARRINGS {
     void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::process() {
         detect_adapters();
         bool eof = false;
-        auto pool = nucleona::parallel::make_asio_pool(_thread_num);
+        auto pool = biovoltron::make_threadpool(_thread_num);
         while (true) {
             if (!eof) {
-                auto fut = pool.submit([this, &pool]() { return read_task(pool); });
-                eof = fut.sync();
-            } else;
+                auto [worker_id, fut] = pool.submit([this, &pool]() { return read_task(pool); });
+                eof = fut.get();
+            }
 
             if (_rw_count.all_finished) {
                 std::cerr << "";
@@ -158,8 +159,6 @@ namespace EARRINGS {
                 break;
             }
         }
-
-        pool.flush();
     }
 
 
