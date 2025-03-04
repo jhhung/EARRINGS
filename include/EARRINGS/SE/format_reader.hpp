@@ -38,7 +38,7 @@ namespace EARRINGS {
                 return rng_->cached();
             }
 
-            bool equal(ranges::default_sentinel) const {
+            bool equal(ranges::default_sentinel_t) const {
                 return !rng_->sin_ || rng_->count_ == format_reader::pool_size_;
             }
 

@@ -11,12 +11,12 @@
 #include <boost/iostreams/filter/gzip.hpp>
 #include <boost/algorithm/string/iter_find.hpp>
 #include <boost/algorithm/string/finder.hpp>
+#include <range/v3/all.hpp>
 #include <string>
 #include <cmath>
 #include <fstream>
 #include <atomic>
 #include <utility>
-#include <ranges>
 
 using namespace EARRINGS;
 namespace EARRINGS

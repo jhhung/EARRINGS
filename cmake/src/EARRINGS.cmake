@@ -9,7 +9,7 @@ target_link_libraries(${__screw_target} PUBLIC
     Boost::iostreams
     pthread
     stdc++fs
-    ZLIB::zlib
+    ${ZLIB_LIBRARIES}
     biovoltron
 )
 
