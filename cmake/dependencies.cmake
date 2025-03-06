@@ -16,13 +16,10 @@ find_package(Boost CONFIG COMPONENTS
      REQUIRED
 )
 
-include_directories(/usr/local/include/libsimdpp-2.1)
-
-find_package(range-v3 CONFIG REQUIRED)
-
 find_package(ZLIB REQUIRED)
-set(ZLIB_LIBRARIES "/usr/lib/x86_64-linux-gnu/libz.so")
 
 set(BIOVOLTRON_TESTS OFF)
 add_subdirectory(${CMAKE_SOURCE_DIR}/submodules/Biovoltron)
 include_directories(${CMAKE_SOURCE_DIR}/submodules/Biovoltron/submodules/htslib)
+include_directories(${CMAKE_SOURCE_DIR}/submodules/Biovoltron/submodules/libsimdpp)
+include_directories(${CMAKE_SOURCE_DIR}/submodules/Biovoltron/submodules/range-v3)
