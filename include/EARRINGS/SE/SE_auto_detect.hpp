@@ -21,136 +21,109 @@
 using namespace EARRINGS;
 namespace EARRINGS
 {
-template<class FORMAT>
-void get_reads(std::istream& is, std::vector<FORMAT>& buf, size_t num_reads)
-{
-    FORMAT f;
-	while(FORMAT::get_obj(is, f))
-	{
-		buf.emplace_back(f);
-		if (buf.size() == num_reads)
-			break;
-	}
+    auto make_input_view(std::istream &ifs) -> ranges::any_view<biovoltron::FastqRecord<>> {
+        if (is_fastq) {
+            constexpr EARRINGS::format_reader_fn<biovoltron::FastqRecord<>> fastq_reader{};
+            return ifs | fastq_reader();
+        } else {
+            constexpr EARRINGS::format_reader_fn<biovoltron::FastaRecord<>> fasta_reader{};
+            return ifs
+                   | fasta_reader()
+                   | ranges::view::transform([](const auto &rec) {
+                return biovoltron::FastqRecord<>{rec.name, rec.seq, std::string(rec.seq.size(), 'I')};
+            });
+        }
+    }
 
-}
-
-using trueType = std::bool_constant<true>;
-using falseType = std::bool_constant<false>;
-
-template<class IFStream, class Tailor>
-std::vector<std::string> tailor_pipeline(IFStream&& ifs
-                                       , size_t thread_num
-                                       , Tailor&& tailor
-                                       , size_t num_reads)
-{
-    constexpr EARRINGS::format_reader_fn<biovoltron::FastqRecord<>> format_reader{};
-
-    std::vector<std::string> tails;
-    tails.reserve(num_reads);
-    size_t counter(0);
-    while (ifs.good() && tails.size() < 3000 && counter < 3) {
-        ranges::for_each(
-                ifs
-                | format_reader()
+    template<class IFStream, class Tailor>
+    std::vector<std::string> tailor_pipeline(IFStream &&ifs, size_t thread_num, Tailor &&tailor, size_t num_reads) {
+        std::vector<std::string> tails;
+        tails.reserve(num_reads);
+        size_t counter(0);
+        while (ifs.good() && tails.size() < 3000 && counter < 3) {
+            auto alignment_pairs = make_input_view(ifs)
                 | ranges::view::transform([&tailor](auto &&query) {
                     return tailor.search(
-                            is_fastq
-                            ? query
+                        is_fastq
+                            ? static_cast<biovoltron::FastqRecord<>>(query)
                             : biovoltron::FastqRecord<>{query.name, query.seq, std::string(query.seq.size(), 'I')}
                     );
                 })
-                | ranges::view::filter([](auto &&alignment_pair) {
-                    return !alignment_pair.first.hits.empty() || !alignment_pair.second.hits.empty();
-                })
-                | ranges::view::transform([&tails](auto &&alignment_pair) {
-                    auto &alignment = alignment_pair.first.hits.empty() ? alignment_pair.second : alignment_pair.first;
-                    if (!alignment.hits.empty()) {
-                        tails.emplace_back(alignment.seq.substr(alignment.seq.length() - alignment.tail_pos - 1));
-                    }
-                    return alignment;
-                }),
-                [](auto &&) {}
-        );
-        counter++;
-    }
+                | ranges::to_vector;
 
-    return tails;
-}
-
-
-std::pair<std::string, bool> seat_adapter_auto_detect(
-                                      std::string& reads_path
-                                    , size_t thread_num = 1
-                                    )
-{
-    std::vector<std::string> tails;
-    biovoltron::Index fm_index{12}, rc_fm_index{12};
-    std::ifstream fm_ifs{index_prefix + ".table"}, rc_fm_ifs{index_prefix + ".rc_table"};
-    fm_index.load(fm_ifs);
-    rc_fm_index.load(rc_fm_ifs);
-    biovoltron::Tailor tailor{fm_index, rc_fm_index};
-    tailor.seed_len = seed_len;
-    tailor.allow_seed_mismatch = !no_mismatch;
-
-    if (is_gz_input)
-    {
-        boost::iostreams::filtering_istream ifs;
-
-        ifs.push(boost::iostreams::gzip_decompressor());
-        auto&& src(boost::iostreams::file_source(reads_path, std::ios_base::binary));
-        if (!src.is_open())
-            throw std::runtime_error("Can't open input gz file normally\n");
-
-        ifs.push(src);
-        if (!ifs.good())
-            throw std::runtime_error("Can't open input gz stream normally\n");
-
-        tails = tailor_pipeline(ifs, thread_num, tailor, DETECT_N_READS);
-    }
-    else
-    {
-        std::ifstream ifs(reads_path);
-        if (!(ifs.is_open() && ifs.good()))
-            throw std::runtime_error("Can't open input file normally\n");
-
-        tails = tailor_pipeline(ifs, thread_num, tailor, DETECT_N_READS);
-    }
-    // std::cerr << "total number of tails sampled: " << tails.size() << "\n";
-
-    std::string adapter;
-    std::pair<std::string, bool> adapter_info;
-    if (is_sensitive)
-    {
-        adapter_info = assemble_adapters<true>(tails, init_kmer_size, 5);
-    }
-    else
-    {
-        adapter_info = assemble_adapters<false>(tails, init_kmer_size, 3);
-    }
-    adapter = std::get<0>(adapter_info);
-
-    if (adapter == "")
-    {
-        std::cout << "unable to detect adapter, use default adapter\n";
-        adapter = DEFAULT_ADAPTER1;
-    }
-    else
-    {
-        // is low complexity
-        if (std::get<1>(adapter_info))
-        {
-            adapter = adapter.substr(0, 16);
-        }
-        else
-        {
-            adapter = adapter.substr(0, 32);
+            for (auto &&pair : alignment_pairs) {
+                const auto &alignment = pair.first.hits.empty() ? pair.second : pair.first;
+                if (!alignment.hits.empty()) {
+                    tails.emplace_back(alignment.seq.substr(alignment.seq.length() - alignment.tail_pos - 1));
+                }
+            }
+            counter++;
         }
 
-        std::cout << "adapter found: " << adapter << '\n';
+        return tails;
     }
 
-     std::get<0>(adapter_info) = adapter;
 
-     return adapter_info;
-}
+    std::pair<std::string, bool> seat_adapter_auto_detect(std::string &reads_path, size_t thread_num = 1) {
+        std::vector<std::string> tails;
+        biovoltron::Index fm_index{12}, rc_fm_index{12};
+        std::ifstream fm_ifs{index_prefix + ".table"}, rc_fm_ifs{index_prefix + ".rc_table"};
+        fm_index.load(fm_ifs);
+        rc_fm_index.load(rc_fm_ifs);
+        biovoltron::Tailor tailor{fm_index, rc_fm_index};
+        tailor.seed_len = seed_len;
+        tailor.allow_seed_mismatch = !no_mismatch;
+
+        if (is_gz_input) {
+            boost::iostreams::filtering_istream ifs;
+
+            ifs.push(boost::iostreams::gzip_decompressor());
+            auto&& src(boost::iostreams::file_source(reads_path, std::ios_base::binary));
+            if (!src.is_open())
+                throw std::runtime_error("Can't open input gz file normally\n");
+
+            ifs.push(src);
+            if (!ifs.good())
+                throw std::runtime_error("Can't open input gz stream normally\n");
+
+            tails = tailor_pipeline(ifs, thread_num, tailor, DETECT_N_READS);
+        } else {
+            std::ifstream ifs(reads_path);
+            if (!(ifs.is_open() && ifs.good()))
+                throw std::runtime_error("Can't open input file normally\n");
+
+            tails = tailor_pipeline(ifs, thread_num, tailor, DETECT_N_READS);
+        }
+        // std::cerr << "total number of tails sampled: " << tails.size() << "\n";
+
+        std::string adapter;
+        std::pair<std::string, bool> adapter_info;
+        if (is_sensitive) {
+            adapter_info = assemble_adapters<true>(tails, init_kmer_size, 5);
+        } else {
+            adapter_info = assemble_adapters<false>(tails, init_kmer_size, 3);
+        }
+        adapter = std::get<0>(adapter_info);
+
+        if (adapter == "") {
+            std::cout << "unable to detect adapter, use default adapter\n";
+            adapter = DEFAULT_ADAPTER1;
+        } else {
+            // is low complexity
+            if (std::get<1>(adapter_info))
+            {
+                adapter = adapter.substr(0, 16);
+            }
+            else
+            {
+                adapter = adapter.substr(0, 32);
+            }
+
+            std::cout << "adapter found: " << adapter << '\n';
+        }
+
+         std::get<0>(adapter_info) = adapter;
+
+         return adapter_info;
+    }
 }

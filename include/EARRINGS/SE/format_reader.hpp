@@ -24,17 +24,13 @@ namespace EARRINGS {
         public:
             cursor() = default;
 
-            explicit cursor(format_reader *rng)
-                    : rng_(rng) {}
+            explicit cursor(format_reader *rng) : rng_(rng) {}
 
             void next() {
                 rng_->next();
             }
 
-            Val &read() const
-
-            noexcept
-            {
+            Val &read() const noexcept {
                 return rng_->cached();
             }
 
@@ -61,15 +57,11 @@ namespace EARRINGS {
     public:
         format_reader() = default;
 
-        explicit format_reader(std::istream &sin)
-                : sin_(&sin), obj_() {
+        explicit format_reader(std::istream &sin) : sin_(&sin), obj_() {
             this->next();
         }
 
-        Val &cached()
-
-        noexcept
-        {
+        Val &cached() noexcept {
             return obj_;
         }
     };
