@@ -79,12 +79,13 @@ int main(int argc, const char* argv[])
             }
         }
 
-        auto adapter_info = seat_adapter_auto_detect(ifs_name[0], para.nThreads);  // auto-detect adapter 
+        auto [head_len, adapter3_info] = seat_adapter_auto_detect(ifs_name[0]);  // auto-detect adapter
+        auto trimmed_file = trim_heads_to_tmpfile(ifs_name[0], head_len);
 
         // input, output, min_len, thread, adapter, quiet flag
-        std::vector<const char*> skewer_argv( is_sensitive ? 12 : 10 );
+        std::vector<const char*> skewer_argv( is_sensitive ? 14 : 12 );
         skewer_argv[0] = "skewer";  // skewer is required to install beforehead.
-        skewer_argv[1] = ifs_name[0].c_str(); // input
+        skewer_argv[1] = trimmed_file.c_str(); // input
         skewer_argv[2] = "-o";  // output
         skewer_argv[3] = ofs_name[0].c_str();
         skewer_argv[4] = "-l";  // min_len
@@ -121,8 +122,8 @@ int main(int argc, const char* argv[])
             return 1;
         }
         skewer_argv[ is_sensitive ? 10 : 8 ] = "-x";
-        skewer_argv[ is_sensitive ? 11 : 9 ] = std::get<0>(adapter_info).c_str();
-        if (std::get<1>(adapter_info))
+        skewer_argv[ is_sensitive ? 11 : 9 ] = std::get<0>(adapter3_info).c_str();
+        if (std::get<1>(adapter3_info))
         {
             skewer_argv.emplace_back("-C");
         }
@@ -189,8 +190,8 @@ int main(int argc, const char* argv[])
             }
             setbuf(stdout, buffer);
 
-            auto adapter_info = seat_adapter_auto_detect(ifs_name[0], para.nThreads);  // auto-detect adapter
-            std::cerr << "\nTrying seed length: " << seed_len << " with found adapter: " << std::get<0>(adapter_info).c_str() << std::endl;
+            auto [head_len, adapter3_info] = seat_adapter_auto_detect(ifs_name[0]);  // auto-detect adapter
+            std::cerr << "\nTrying seed length: " << seed_len << " with found adapter: " << std::get<0>(adapter3_info).c_str() << std::endl;
 
             // input, output, min_len, thread, adapter, quiet flag
             std::vector<const char*> skewer_argv( 12 );
@@ -207,7 +208,7 @@ int main(int argc, const char* argv[])
             skewer_argv[8] = "-r";  // error
             skewer_argv[9] = "0.2";
             skewer_argv[10] = "-x";
-            skewer_argv[11] = std::get<0>(adapter_info).c_str();
+            skewer_argv[11] = std::get<0>(adapter3_info).c_str();
 
             skewer::main(skewer_argv.size(), skewer_argv.data());
             if (!freopen("/dev/tty", "a", stdout)) {
@@ -223,7 +224,7 @@ int main(int argc, const char* argv[])
             std::cerr << " (" << trimmed << "% trimmed)" << std::endl;
 
             buffers[seed_len] = buffer;
-            adapters[seed_len] = std::get<0>(adapter_info).c_str();
+            adapters[seed_len] = std::get<0>(adapter3_info).c_str();
             seed_lens[trimmed] = seed_len;
         }
 
@@ -362,7 +363,7 @@ index once for a specific reference which is the source of the target reads.
 
             std::vector<biovoltron::FastaRecord<>> rc_records;
             for (const auto& record : records) {
-                rc_records.emplace_back(fa.name, biovoltron::Codec::rev_comp(fa.seq));
+                rc_records.emplace_back(record.name, biovoltron::Codec::rev_comp(record.seq));
             }
 
             biovoltron::Index rc_index;
@@ -462,6 +463,10 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             "mode would be more suitable.\n"
             "Under sensitive mode, minimum number of kmers (--prune_factor) would not be "
             "restricted.")
+        ("max_5adapter_len,A",
+         boost::program_options::
+            value<size_t>()->default_value(7),
+            "Maximum possible length of the 5' end adapter.")
         ("init_kmer_size,k",
          boost::program_options::
              value<size_t>()->default_value(10),
@@ -469,7 +474,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         ("kmer_step,s",
          boost::program_options::
              value<size_t>()->default_value(5),
-             "The step size for incresing kmer.")
+             "The step size for increasing kmer.")
         ("UMI,u",
             "Estimate the size of UMI sequences, results will be printed to console by "
             "default.");
@@ -533,6 +538,11 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             is_sensitive = true;
         }
 
+        if (vm.count("max_5adapter_len"))
+        {
+            max_5adapter_len = vm["max_5adapter_len"].as<size_t>();
+        }
+
         if (vm.count("init_kmer_size"))
         {
             init_kmer_size = vm["init_kmer_size"].as<size_t>();
@@ -590,7 +600,8 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         std::cout << "Output file name: " << ofs_name[0] << std::endl;
         std::cout << "# of threads: " << thread_num << std::endl;
         std::cout << "Is fastq: " << is_fastq << ", Is gz input: " << is_gz_input << ", Is bam: " << is_bam << std::endl;
-        std::cout << "Seed length: " << seed_len << ", Max alignment: " << min_multi << ", No mismatch: " << no_mismatch << std::endl;
+        std::cout << "Seed length: " << seed_len << ", Max 5' end adapter length: " << max_5adapter_len << std::endl;
+        std::cout << "Max alignment: " << min_multi << ", No mismatch: " << no_mismatch << std::endl;
         std::cout << "Prune factor: " << prune_factor << ", Sensitive mode: " << is_sensitive << std::endl;
         std::cout << "Min length: " << min_length << ", UMI: " << estimate_umi_len << std::endl;
         std::cout << "Default adapter: " << DEFAULT_ADAPTER1 << std::endl;

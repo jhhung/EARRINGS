@@ -3,7 +3,7 @@
 
 #include <istream>
 #include <mutex>
-#include <biovoltron/file_io/fasta.hpp>
+#include <biovoltron/file_io/fastq.hpp>
 #include <range/v3/all.hpp>
 
 namespace EARRINGS {
