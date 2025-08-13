@@ -4,6 +4,7 @@
 #include <vector>
 #include <filesystem>
 #include <boost/program_options.hpp>
+#include <range/v3/all.hpp>
 #include <EARRINGS/SE/SE_auto_detect.hpp>
 #include <EARRINGS/PE/PE_trimmer.hpp>
 #include <EARRINGS/estimate_adapter_from_BAMS.hpp>
@@ -80,31 +81,28 @@ int main(int argc, const char* argv[])
         }
 
         auto [head_len, adapter3_info] = seat_adapter_auto_detect(ifs_name[0]);  // auto-detect adapter
-        auto trimmed_file = trim_heads_to_tmpfile(ifs_name[0], head_len);
+        auto trimmed_tmpfile = trim_heads_to_tmpfile(ifs_name[0], head_len);
 
         // input, output, min_len, thread, adapter, quiet flag
-        std::vector<const char*> skewer_argv( is_sensitive ? 14 : 12 );
-        skewer_argv[0] = "skewer";  // skewer is required to install beforehead.
-        skewer_argv[1] = trimmed_file.c_str(); // input
-        skewer_argv[2] = "-o";  // output
-        skewer_argv[3] = ofs_name[0].c_str();
-        skewer_argv[4] = "-l";  // min_len
-        skewer_argv[5] = std::to_string(min_length).c_str();
-        skewer_argv[6] = "-t";  // thread
-        skewer_argv[7] = std::to_string(thread_num).c_str();
+        std::vector<std::string> skewer_args{
+            "skewer", trimmed_tmpfile,
+            "-o", ofs_name[0],
+            "-l", std::to_string(min_length),
+            "-t", std::to_string(thread_num)
+        };
+        if (is_sensitive) skewer_args.insert(skewer_args.end(), {"-r", "0.2"});
 
-        if( is_sensitive )
-        {
-            skewer_argv[8] = "-r";  // error
-            skewer_argv[9] = "0.2";
-        }
+        auto skewer_argv1 = skewer_args
+            | ::ranges::views::transform(&std::string::c_str)
+            | ::ranges::to<std::vector<const char*>>;
 
-        int32_t iRet = para.GetOpt(skewer_argv.size() - 2, skewer_argv.data(), errMsg);
+        int32_t iRet = para.GetOpt(skewer_argv1.size(), skewer_argv1.data(), errMsg);
+
         // copy from skewer's main program.
         if (iRet < 0)
         {
-            const char * program = strrchr(argv[0], '/');
-            program = (program == NULL) ? argv[0] : (program + 1);
+            const char * program = strrchr(skewer_argv1[0], '/');
+            program = (program == NULL) ? skewer_argv1[0] : (program + 1);
             if (iRet == -1)
             {
                 if(para.bEnquireVersion)
@@ -121,14 +119,16 @@ int main(int argc, const char* argv[])
             }
             return 1;
         }
-        skewer_argv[ is_sensitive ? 10 : 8 ] = "-x";
-        skewer_argv[ is_sensitive ? 11 : 9 ] = std::get<0>(adapter3_info).c_str();
-        if (std::get<1>(adapter3_info))
-        {
-            skewer_argv.emplace_back("-C");
-        }
 
-        skewer::main(skewer_argv.size(), skewer_argv.data());
+        skewer_args.insert(skewer_args.end(), {"-x", std::get<0>(adapter3_info)});
+        if (std::get<1>(adapter3_info)) skewer_args.emplace_back("-C");
+
+        auto skewer_argv2 = skewer_args
+            | ::ranges::views::transform(&std::string::c_str)
+            | ::ranges::to<std::vector<const char*>>();
+
+        skewer::main(skewer_argv2.size(), skewer_argv2.data());
+        std::remove(trimmed_tmpfile.c_str());
     }
     else if (std::string(argv[1]) == "paired")
     {
@@ -194,21 +194,19 @@ int main(int argc, const char* argv[])
             std::cerr << "\nTrying seed length: " << seed_len << " with found adapter: " << std::get<0>(adapter3_info).c_str() << std::endl;
 
             // input, output, min_len, thread, adapter, quiet flag
-            std::vector<const char*> skewer_argv( 12 );
             std::string out_len = ofs_name[0] + "_len" + std::to_string(seed_len);
+            std::vector<std::string> skewer_args{
+                "skewer", ifs_name[0],
+                "-o", out_len,
+                "-l", std::to_string(min_length),
+                "-t", std::to_string(thread_num),
+                "-r", "0.2",
+                "-x", std::get<0>(adapter3_info)
+            };
 
-            skewer_argv[0] = "skewer";  // skewer is required to install beforehead.
-            skewer_argv[1] = ifs_name[0].c_str(); // input
-            skewer_argv[2] = "-o";  // output
-            skewer_argv[3] = (out_len).c_str();
-            skewer_argv[4] = "-l";  // min_len
-            skewer_argv[5] = std::to_string(min_length).c_str();
-            skewer_argv[6] = "-t";  // thread
-            skewer_argv[7] = std::to_string(thread_num).c_str();
-            skewer_argv[8] = "-r";  // error
-            skewer_argv[9] = "0.2";
-            skewer_argv[10] = "-x";
-            skewer_argv[11] = std::get<0>(adapter3_info).c_str();
+            auto skewer_argv = skewer_args
+                | ::ranges::views::transform(&std::string::c_str)
+                | ::ranges::to<std::vector<const char*>>();
 
             skewer::main(skewer_argv.size(), skewer_argv.data());
             if (!freopen("/dev/tty", "a", stdout)) {
@@ -236,14 +234,15 @@ int main(int argc, const char* argv[])
 
         for (seed_len = min_seed_len; seed_len <= max_seed_len; ++seed_len)
         {
+            std::string out_len = ofs_name[0] + "_len" + std::to_string(seed_len);
             if (seed_len == seed_lens.rbegin()->second)
             {
-                std::rename((ofs_name[0] + "_len" + std::to_string(seed_len) + "-trimmed.fastq").c_str(), (ofs_name[0] + "-trimmed.fastq").c_str());
-                std::rename((ofs_name[0] + "_len" + std::to_string(seed_len) + "-trimmed.log").c_str(), (ofs_name[0] + "-trimmed.log").c_str());
+                std::rename((out_len + "-trimmed.fastq").c_str(), (ofs_name[0] + "-trimmed.fastq").c_str());
+                std::rename((out_len + "-trimmed.log").c_str(), (ofs_name[0] + "-trimmed.log").c_str());
             }
 
-            std::remove((ofs_name[0] + "_len" + std::to_string(seed_len) + "-trimmed.fastq").c_str());
-            std::remove((ofs_name[0] + "_len" + std::to_string(seed_len) + "-trimmed.log").c_str());
+            std::remove((out_len + "-trimmed.fastq").c_str());
+            std::remove((out_len + "-trimmed.log").c_str());
         }
     }
     else if (std::string(argv[1]) == "skewer")
@@ -269,19 +268,18 @@ int main(int argc, const char* argv[])
         }
 
         // input, output, min_len, thread, adapter, quiet flag
-        std::vector<const char*> skewer_argv( 12 );
-        skewer_argv[0] = "skewer";  // skewer is required to install beforehead.
-        skewer_argv[1] = ifs_name[0].c_str(); // input
-        skewer_argv[2] = "-o";  // output
-        skewer_argv[3] = ofs_name[0].c_str();
-        skewer_argv[4] = "-l";  // min_len
-        skewer_argv[5] = std::to_string(min_length).c_str();
-        skewer_argv[6] = "-t";  // thread
-        skewer_argv[7] = std::to_string(thread_num).c_str();
-        skewer_argv[8] = "-r";  // error
-        skewer_argv[9] = "0.2";
-        skewer_argv[10] = "-x";
-        skewer_argv[11] = DEFAULT_ADAPTER1.c_str();
+        std::vector<std::string> skewer_args{
+            "skewer", ifs_name[0],
+            "-o", ofs_name[0],
+            "-l", std::to_string(min_length),
+            "-t", std::to_string(thread_num),
+            "-r", "0.2",
+            "-x", DEFAULT_ADAPTER1
+        };
+
+        auto skewer_argv = skewer_args
+            | ::ranges::views::transform(&std::string::c_str)
+            | ::ranges::to<std::vector<const char*>>();
 
         skewer::main(skewer_argv.size(), skewer_argv.data());
     }
