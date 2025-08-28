@@ -24,7 +24,7 @@ size_t seed_len(18);
 size_t min_multi(0);
 float prune_factor(0.1);
 bool no_mismatch(false);
-bool estimate_umi_len(false);
+bool umi_len_estimation(false);
 size_t max_5adapter_len(7);
 size_t init_kmer_size(10);
 size_t kmer_step(5);

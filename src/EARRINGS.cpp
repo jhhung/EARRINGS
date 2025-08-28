@@ -96,8 +96,8 @@ int main(int argc, const char* argv[]) {
 
         // copy from skewer's main program.
         if (iRet < 0) {
-            const char * program = strrchr(skewer_argv1[0], '/');
-            program = (program == NULL) ? skewer_argv1[0] : (program + 1);
+            const char* program = strrchr(skewer_argv1[0], '/');
+            program = (program == NULL) ? skewer_argv1[0] : program + 1;
             if (iRet == -1) {
                 if(para.bEnquireVersion) {
                     para.PrintVersion(stdout);
@@ -438,9 +438,8 @@ Skewer with adapter parameters passed by EARRINGS automatically.
              value<size_t>()->default_value(5),
              "The step size for increasing kmer.")
         ("UMI,u",
-            "Estimate the size of UMI sequences, results will be printed to console by "
+            "Estimate the length of UMI sequences, results will be printed to console by "
             "default.");
-
 
         boost::program_options::variables_map vm;
         boost::program_options::store(
@@ -506,7 +505,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         }
 
         if (vm.count("UMI")) {
-            estimate_umi_len = true;
+            umi_len_estimation = true;
         }
 
         std::string fa_ext(".fa"), fasta_ext(".fasta");
@@ -551,7 +550,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         std::cout << "Seed length: " << seed_len << ", Max 5' end adapter length: " << max_5adapter_len << std::endl;
         std::cout << "Max alignment: " << min_multi << ", No mismatch: " << no_mismatch << std::endl;
         std::cout << "Prune factor: " << prune_factor << ", Sensitive mode: " << is_sensitive << std::endl;
-        std::cout << "Min length: " << min_length << ", UMI: " << estimate_umi_len << std::endl;
+        std::cout << "Min length: " << min_length << ", UMI: " << umi_len_estimation << std::endl;
         std::cout << "Default adapter: " << DEFAULT_ADAPTER1 << std::endl;
         std::cout << std::noboolalpha;
     } catch (std::exception& e) {
@@ -715,7 +714,7 @@ adapter removed FastQ/FastA format output files (dual files).
         std::cout << "# of threads: " << thread_num << std::endl;
         std::cout << "Is fastq: " << is_fastq << ", Is gz input: " << is_gz_input << ", Is bam: " << is_bam << std::endl;
         std::cout << "Prune factor: " << prune_factor << ", Sensitive mode: " << is_sensitive << std::endl;
-        std::cout << "Min length: " << min_length << ", UMI: " << estimate_umi_len << std::endl;
+        std::cout << "Min length: " << min_length << ", UMI: " << umi_len_estimation << std::endl;
         std::cout << "Match rate: " << match_rate << ", Seq cmp rate: " << seq_cmp_rate << ", Adapter cmp rate: " << adapter_cmp_rate << std::endl;
         std::cout << "Default adapter1: " << DEFAULT_ADAPTER1 << std::endl;
         std::cout << "Default adapter2: " << DEFAULT_ADAPTER2 << std::endl;
@@ -851,7 +850,7 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
         }
 
         if (vm.count("UMI")) {
-            estimate_umi_len = true;
+            umi_len_estimation = true;
         }
 
         std::string fa_ext(".fa"), fasta_ext(".fasta");
@@ -895,7 +894,7 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
         std::cout << "Is fastq: " << is_fastq << ", Is gz input: " << is_gz_input << ", Is bam: " << is_bam << std::endl;
         std::cout << "Seed lengths: " << min_seed_len << "~" << max_seed_len << ", Max alignment: " << min_multi << ", No mismatch: " << no_mismatch << std::endl;
         std::cout << "Prune factor: " << prune_factor << ", Sensitive mode: " << is_sensitive << std::endl;
-        std::cout << "Min length: " << min_length << ", UMI: " << estimate_umi_len << std::endl;
+        std::cout << "Min length: " << min_length << ", UMI: " << umi_len_estimation << std::endl;
         std::cout << "Default adapter: " << DEFAULT_ADAPTER1 << std::endl;
         std::cout << std::noboolalpha;
     } catch (std::exception& e) {

@@ -8,89 +8,64 @@
 #include <string>
 #include <fstream>
 #include <unordered_map>
+#include <range/v3/all.hpp>
+#include <iostream>
 
-namespace EARRINGS
-{
+namespace EARRINGS {
+
 static constexpr std::array<char, 4> bases = {'A', 'T', 'C', 'G'};
 static constexpr size_t MAX_KMER = 35;
-bool detect_low_complexity(const std::string& adapter,
-                           const size_t kmer_size, 
-                           const float threshold = 0.7)
-{
+bool detect_low_complexity(
+    const std::string& adapter,
+    const size_t kmer_size, 
+    const float threshold = 0.7
+) {
     size_t same_char(0);
 
-    for (const auto base : bases)
-    {
+    for (const auto& base : bases) {
         same_char = 0;
-        for (const char c : adapter.substr(0, kmer_size))
-        {
-            if (base == c)
-            {
-                same_char++;
-            }
+        for (const char c : adapter.substr(0, kmer_size)) {
+            if (base == c) ++same_char;
         }
 
-        if ((float)same_char / kmer_size >= threshold)
-        {
-            return true;
-        } 
+        if ((float) same_char / kmer_size >= threshold) return true; 
     }
 
     return false;
 }
 
-size_t estimate_umi_size(const std::vector<std::string>& tails,
-                         const std::string& adapter_seq)
-{
-    // len, count
-    std::string sub_seq = adapter_seq.substr(0, 5);
-    std::unordered_map<size_t, size_t> umi_size_cnt;
-    for (const auto& t : tails)
-    {
-        if (t.size() < sub_seq.size())
-        {
-            continue;
-        }
+size_t estimate_umi_len(
+    const std::vector<std::string>& tails,
+    const std::string& adapter_seq
+) {
+    if (adapter_seq.size() < 5) return 0;
 
-        for (size_t i = 0; i < t.size(); ++i)
-        {
-            auto sub_tail = t.substr(i, 5);
-            if (sub_tail == sub_seq)
-            {
-                umi_size_cnt[i]++;
-                break;
-            }
-        }   
-    }
-    
-    size_t max_len = 0, max_value = 0;
-    for (const auto& ele : umi_size_cnt)
-    {
-        // std::cerr << ele.first << "\t" << ele.second << "\n";
-        if (ele.second > max_value)
-        {
-            max_value = ele.second;
-            max_len = ele.first;
+    const std::string_view adapter_prefix(adapter_seq.data(), 5);
+    std::unordered_map<size_t, size_t> umi_len_counts;
+    for (const auto& tail : tails) {
+        if (const auto pos = tail.find(adapter_prefix); pos != std::string::npos) {
+            ++umi_len_counts[pos];
         }
     }
 
-    return max_len;
+    if (umi_len_counts.empty()) return 0;
+
+    return ranges::max_element(umi_len_counts, {}, &std::pair<const size_t, size_t>::second)->first;
 }
 
 // max_try is set to 5 in sensitive mode
 template<bool IS_SENSITIVE>
 std::pair<std::string, bool> assemble_adapters(
-        std::vector<std::string>& tails, 
-        const size_t kmer_size = init_kmer_size,
-        const size_t max_try = 3)
-{
+    std::vector<std::string>& tails, 
+    const size_t kmer_size = init_kmer_size,
+    const size_t max_try = 3
+) {
 	std::vector<std::string> adapters;
     auto original_tails = tails;
     size_t tail_size = tails.size();
     kyutora::GraphWrapper g(kmer_size);
     
-    for (size_t i(0); i < max_try; ++i)
-    {
+    for (size_t i(0); i < max_try; ++i) {
         // removing tails smaller than kmer size
         std::experimental::erase_if(tails, [&g](const auto& s){return s.size() < g.get_kmer_size();});
         
@@ -101,10 +76,8 @@ std::pair<std::string, bool> assemble_adapters(
         kyutora::PRUNE_FACTOR = size_t(std::ceil(tail_size * percentage));
         
         // prune factor too low, abort
-        if constexpr (!IS_SENSITIVE)
-        {
-            if (kyutora::PRUNE_FACTOR < 10)
-            {
+        if constexpr (!IS_SENSITIVE) {
+            if (kyutora::PRUNE_FACTOR < 10) {
                 return std::make_pair("", false);
             }
         }
@@ -115,33 +88,24 @@ std::pair<std::string, bool> assemble_adapters(
         g.find_paths();
         adapters = g.get_adapters();
 
-
         if (!adapters.empty()) break; 
     }
 
 
-    if (adapters.empty())
-    {
-        if (kmer_size >= MAX_KMER)
-        {
+    if (adapters.empty()) {
+        if (kmer_size >= MAX_KMER) {
             return std::make_pair("", false);
         }
-
         return assemble_adapters<IS_SENSITIVE>(original_tails, kmer_size + kmer_step, max_try);
     }
     
     // increase k-mer when low complexity adapters are assembled
-    if (detect_low_complexity(adapters[0], kmer_size))
-    {
-        if (kmer_size >= MAX_KMER)
-        {
+    if (detect_low_complexity(adapters[0], kmer_size)) {
+        if (kmer_size >= MAX_KMER) {
             return std::make_pair(adapters[0], true);
-        }
-        else
-        {
+        } else {
             auto tmp_adapter = std::get<0>(assemble_adapters<IS_SENSITIVE>(original_tails, kmer_size + kmer_step, max_try));
-            if (tmp_adapter.empty())
-            {
+            if (tmp_adapter.empty()) {
                 return std::make_pair(adapters[0], true);
             }
             return std::make_pair(tmp_adapter, true);
@@ -150,6 +114,5 @@ std::pair<std::string, bool> assemble_adapters(
     
     return std::make_pair(adapters[0], false); 
 }
-
 
 }
