@@ -126,7 +126,8 @@ Single-End mode parameters
     - -a [ --adapter1 ] arg (=AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)</br>
     Alternative adapter if auto-detect mechanism fails.
     - -u [ --UMI ]</br>
-    Estimate the size of UMI sequences, results will be printed to console by default.
+    Estimate the size of 3' end UMI sequences, results will be printed to console by default.</br>
+    Note that if the UMI is located at the 5' end, its length cannot be detected.
 
 ### **Paired-End**
 

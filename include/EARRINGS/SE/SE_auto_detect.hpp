@@ -171,8 +171,12 @@ std::pair<std::string, bool> seat_adapter_auto_detect(
         std::cout << "adapter found: " << adapter << '\n';
     }
 
-     std::get<0>(adapter_info) = adapter;
+    std::get<0>(adapter_info) = adapter;
 
-     return adapter_info;
+    if (estimate_umi_len) {
+        std::cout << "Estimated 3' end UMI length: " << estimate_umi_size(tails, adapter) << std::endl;
+    }
+
+    return adapter_info;
 }
 }
