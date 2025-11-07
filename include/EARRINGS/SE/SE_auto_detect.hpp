@@ -11,8 +11,7 @@
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
-#include <boost/algorithm/string/iter_find.hpp>
-#include <boost/algorithm/string/finder.hpp>
+#include <boost/algorithm/string.hpp>
 #include <range/v3/all.hpp>
 #include <omp.h>
 #include <string>
@@ -42,7 +41,6 @@ std::pair<size_t, std::vector<std::string>> tailor_pipeline(
     IFStream &&ifs, Tailor &&tailor, size_t num_reads
 ) {
     std::unordered_map<size_t, size_t> head_lens;
-    head_lens.reserve(3000);
     std::vector<std::string> tails;
     tails.reserve(3000);
 
@@ -75,8 +73,6 @@ std::pair<size_t, std::vector<std::string>> tailor_pipeline(
 }
 
 std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::string &reads_path) {
-    size_t head_len;
-    std::vector<std::string> tails;
     biovoltron::Index fm_index, rc_fm_index;
     std::ifstream fm_ifs{index_prefix + ".table"}, rc_fm_ifs{index_prefix + ".rc_table"};
     fm_index.load(fm_ifs);
@@ -85,8 +81,10 @@ std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::st
     tailor.seed_len = seed_len;
     tailor.allow_seed_mismatch = !no_mismatch;
     tailor.max_multi = 1;
-    tailor.max_5adapter_len = max_5adapter_len;
+    tailor.skipped_5prime_len = skipped_5prime_len;
 
+    size_t head_len;
+    std::vector<std::string> tails;
     if (is_gz_input) {
         boost::iostreams::filtering_istream ifs;
 
@@ -116,7 +114,8 @@ std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::st
         adapter3_info = assemble_adapters<false>(tails, init_kmer_size, 3);
     }
 
-    std::cout << "5' adapter length: " << head_len << '\n';
+    const auto adapter5_len = head_len - tags5_total_len;
+    std::cout << "5' adapter length: " << adapter5_len << '\n';
 
     adapter3 = std::get<0>(adapter3_info);
 
@@ -136,10 +135,12 @@ std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::st
 
     std::get<0>(adapter3_info) = adapter3;
 
+    if (!tag_structure3.empty()) estimated_tags3_len = estimate_tags3_len(tails, adapter3);
+
     return {head_len, adapter3_info};
 }
 
-std::string trim_heads_to_tmpfile(std::string& reads_path, size_t head_len) {
+std::string trim_heads_to_tmpfile(std::string& reads_path, size_t head_len, std::vector<std::vector<std::string>>& tags5) {
     const auto ts = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
     const std::string tmpfile = "/tmp/EARRINGS_trimmed_" + std::to_string(getpid()) + "_" + std::to_string(ts) + ".tmp";
     
@@ -162,21 +163,55 @@ std::string trim_heads_to_tmpfile(std::string& reads_path, size_t head_len) {
     }
     
     std::ofstream ofs(tmpfile);
+    const int num_tags5 = tag_structure5.size();
+    size_t start_pos = head_len - tags5_total_len;
+
+    const auto umi_idx = ranges::find_if(tag_structure5, [](const auto& p) { return p.first == "UMI"; }) - tag_structure5.begin();
+
+    auto extract_tags5 = [&]<typename Record>() {
+        constexpr EARRINGS::format_reader_fn<Record> reader{};
+        std::vector<Record> records;
+        for (auto&& rec : (*ifs) | reader()) {
+            records.push_back(std::move(rec));
+        }
+        const size_t num_records = records.size();
+        tags5.resize(num_records);
+
+        #pragma omp parallel
+        {
+            std::ostringstream oss;
+
+            #pragma omp for nowait
+            for (size_t idx = 0; idx < num_records; ++idx) {
+                auto& rec = records[idx];
+                auto& rec_tags = tags5[idx];
+
+                if (num_tags5 > 0) {
+                    rec_tags.resize(num_tags5);
+                    size_t pos = start_pos;
+                    for (size_t i = 0; i < num_tags5; ++i) {
+                        const auto& len = tag_structure5[i].second;
+                        rec_tags[i] = rec.seq.substr(pos, len);
+                        pos += len;
+                    }
+                    if (umi_idx != num_tags5) rec.name += ":" + rec_tags[umi_idx];
+                }
+
+                rec.seq = rec.seq.substr(head_len);
+                if constexpr (std::is_same_v<Record, biovoltron::FastqRecord<>>) rec.qual = rec.qual.substr(head_len);
+                oss << rec << '\n';
+            }
+
+            #pragma omp critical
+            {
+                ofs << oss.str();
+            }
+        }
+    };
     if (is_fastq) {
-        constexpr EARRINGS::format_reader_fn<biovoltron::FastqRecord<>> fastq_reader{};
-        auto view = (*ifs) | fastq_reader();
-        for (auto&& rec : view) {
-            rec.seq = rec.seq.substr(head_len);
-            rec.qual = rec.qual.substr(head_len);
-            ofs << rec << "\n";
-        }
+        extract_tags5.template operator()<biovoltron::FastqRecord<>>();
     } else {
-        constexpr EARRINGS::format_reader_fn<biovoltron::FastaRecord<>> fasta_reader{};
-        auto view = (*ifs) | fasta_reader();
-        for (auto&& rec : view) {
-            rec.seq = rec.seq.substr(head_len);
-            ofs << rec << "\n";
-        }
+        extract_tags5.template operator()<biovoltron::FastaRecord<>>();
     }
 
     return tmpfile;

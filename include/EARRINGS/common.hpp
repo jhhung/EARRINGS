@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <string_view>
+#include <utility>
 #include <filesystem>
 #include <EARRINGS/version.h>
 
@@ -24,10 +25,14 @@ size_t seed_len(18);
 size_t min_multi(0);
 float prune_factor(0.1);
 bool no_mismatch(false);
-bool umi_len_estimation(false);
-size_t max_5adapter_len(7);
+size_t skipped_5prime_len(7);
 size_t init_kmer_size(10);
 size_t kmer_step(5);
+std::vector<std::pair<std::string, size_t>> tag_structure5;
+size_t tags5_total_len(0);
+std::vector<std::pair<std::string, size_t>> tag_structure3;
+size_t tags3_total_len(0);
+size_t estimated_tags3_len(0);
 
 // for PE
 size_t thread_num(1);

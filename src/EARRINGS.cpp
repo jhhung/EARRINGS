@@ -6,6 +6,7 @@
 #include <boost/program_options.hpp>
 #include <range/v3/all.hpp>
 #include <EARRINGS/SE/SE_auto_detect.hpp>
+#include <EARRINGS/SE/tag_structure.hpp>
 #include <EARRINGS/PE/PE_trimmer.hpp>
 #include <EARRINGS/estimate_adapter_from_BAMS.hpp>
 #include <EARRINGS/common.hpp>
@@ -76,12 +77,14 @@ int main(int argc, const char* argv[]) {
             }
         }
 
+        std::vector<std::vector<std::string>> tags5, tags3;
+
         auto [head_len, adapter3_info] = seat_adapter_auto_detect(ifs_name[0]);  // auto-detect adapter
-        auto trimmed_tmpfile = trim_heads_to_tmpfile(ifs_name[0], head_len);
+        auto trimmed_file = head_len > 0 ? trim_heads_to_tmpfile(ifs_name[0], head_len, tags5) : ifs_name[0];
 
         // input, output, min_len, thread, adapter, quiet flag
         std::vector<std::string> skewer_args{
-            "skewer", trimmed_tmpfile,
+            "skewer", trimmed_file,
             "-o", ofs_name[0],
             "-l", std::to_string(min_length),
             "-t", std::to_string(thread_num)
@@ -119,7 +122,9 @@ int main(int argc, const char* argv[]) {
             | ::ranges::to<std::vector<const char*>>();
 
         skewer::main(skewer_argv2.size(), skewer_argv2.data());
-        std::remove(trimmed_tmpfile.c_str());
+        if (!tag_structure3.empty()) trim_tags3(tags3, std::get<0>(adapter3_info));
+        if (!tag_structure5.empty() || !tag_structure3.empty()) export_tags_tsv(tags5, tags3);
+        if (head_len > 0) std::remove(trimmed_file.c_str());
     } else if (std::string(argv[1]) == "paired") {
         init_paired(argc, argv);
 
@@ -431,15 +436,26 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             "Maximum possible length of the 5' end adapter.")
         ("init_kmer_size,k",
          boost::program_options::
-             value<size_t>()->default_value(10),
-             "The initial size of kmer.")
+            value<size_t>()->default_value(10),
+            "The initial size of kmer.")
         ("kmer_step,s",
          boost::program_options::
-             value<size_t>()->default_value(5),
-             "The step size for increasing kmer.")
-        ("UMI,u",
-            "Estimate the length of UMI sequences, results will be printed to console by "
-            "default.");
+            value<size_t>()->default_value(5),
+            "The step size for increasing kmer.")
+        ("5_tag_structure,5",
+         boost::program_options::
+            value<std::string>()->default_value(""),
+            "The structure between the 5' adapter and the insert. "
+            "Specify each element as name:length, separated by commas, in the actual order. "
+            "Each name must be unique. The name \"UMI\" specifically represents the UMI. "
+            "Example: \"UMI:6,cell_bc:8\"")
+        ("3_tag_structure,3",
+         boost::program_options::
+            value<std::string>()->default_value(""),
+            "The structure between the insert and the 3' adapter. "
+            "Specify each element as name:length, separated by commas, in the actual order. "
+            "Each name must be unique. The name \"UMI\" specifically represents the UMI. "
+            "Example: \"UMI:6,cell_bc:8\"");
 
         boost::program_options::variables_map vm;
         boost::program_options::store(
@@ -493,7 +509,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         }
 
         if (vm.count("max_5adapter_len")) {
-            max_5adapter_len = vm["max_5adapter_len"].as<size_t>();
+            skipped_5prime_len = vm["max_5adapter_len"].as<size_t>();
         }
 
         if (vm.count("init_kmer_size")) {
@@ -504,8 +520,12 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             kmer_step = vm["kmer_step"].as<size_t>();
         }
 
-        if (vm.count("UMI")) {
-            umi_len_estimation = true;
+        if (vm.count("5_tag_structure") || vm.count("3_tag_structure")) {
+            const auto structure_str5 = vm["5_tag_structure"].as<std::string>();
+            const auto structure_str3 = vm["3_tag_structure"].as<std::string>();
+            if (!structure_str5.empty() || !structure_str3.empty()) {
+                parse_tag_structures(structure_str5, structure_str3);
+            }
         }
 
         std::string fa_ext(".fa"), fasta_ext(".fasta");
@@ -547,10 +567,10 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         std::cout << "Output file name: " << ofs_name[0] << std::endl;
         std::cout << "# of threads: " << thread_num << std::endl;
         std::cout << "Is fastq: " << is_fastq << ", Is gz input: " << is_gz_input << ", Is bam: " << is_bam << std::endl;
-        std::cout << "Seed length: " << seed_len << ", Max 5' end adapter length: " << max_5adapter_len << std::endl;
+        std::cout << "Seed length: " << seed_len << ", Max 5' end length before insert: " << skipped_5prime_len << std::endl;
         std::cout << "Max alignment: " << min_multi << ", No mismatch: " << no_mismatch << std::endl;
         std::cout << "Prune factor: " << prune_factor << ", Sensitive mode: " << is_sensitive << std::endl;
-        std::cout << "Min length: " << min_length << ", UMI: " << umi_len_estimation << std::endl;
+        std::cout << "Min length: " << min_length  << std::endl;
         std::cout << "Default adapter: " << DEFAULT_ADAPTER1 << std::endl;
         std::cout << std::noboolalpha;
     } catch (std::exception& e) {
@@ -714,7 +734,7 @@ adapter removed FastQ/FastA format output files (dual files).
         std::cout << "# of threads: " << thread_num << std::endl;
         std::cout << "Is fastq: " << is_fastq << ", Is gz input: " << is_gz_input << ", Is bam: " << is_bam << std::endl;
         std::cout << "Prune factor: " << prune_factor << ", Sensitive mode: " << is_sensitive << std::endl;
-        std::cout << "Min length: " << min_length << ", UMI: " << umi_len_estimation << std::endl;
+        std::cout << "Min length: " << min_length << std::endl;
         std::cout << "Match rate: " << match_rate << ", Seq cmp rate: " << seq_cmp_rate << ", Adapter cmp rate: " << adapter_cmp_rate << std::endl;
         std::cout << "Default adapter1: " << DEFAULT_ADAPTER1 << std::endl;
         std::cout << "Default adapter2: " << DEFAULT_ADAPTER2 << std::endl;
@@ -792,10 +812,7 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
         ("adapter,a",
          boost::program_options::
             value<std::string>(&DEFAULT_ADAPTER1)->default_value(DEFAULT_ADAPTER1),
-            "Alternative adapter if auto-detect mechanism fails.")
-        ("UMI,u",
-            "Estimate the size of UMI sequences, results will be printed to console by "
-            "default.");
+            "Alternative adapter if auto-detect mechanism fails.");
 
         boost::program_options::variables_map vm;
         boost::program_options::store (
@@ -849,10 +866,6 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
             }
         }
 
-        if (vm.count("UMI")) {
-            umi_len_estimation = true;
-        }
-
         std::string fa_ext(".fa"), fasta_ext(".fasta");
         if (ifs_name[0].find(".gz") == ifs_name[0].size() - 3) {
             is_gz_input = true;
@@ -894,7 +907,7 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
         std::cout << "Is fastq: " << is_fastq << ", Is gz input: " << is_gz_input << ", Is bam: " << is_bam << std::endl;
         std::cout << "Seed lengths: " << min_seed_len << "~" << max_seed_len << ", Max alignment: " << min_multi << ", No mismatch: " << no_mismatch << std::endl;
         std::cout << "Prune factor: " << prune_factor << ", Sensitive mode: " << is_sensitive << std::endl;
-        std::cout << "Min length: " << min_length << ", UMI: " << umi_len_estimation << std::endl;
+        std::cout << "Min length: " << min_length << std::endl;
         std::cout << "Default adapter: " << DEFAULT_ADAPTER1 << std::endl;
         std::cout << std::noboolalpha;
     } catch (std::exception& e) {

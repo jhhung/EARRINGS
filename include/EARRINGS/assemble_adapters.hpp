@@ -6,10 +6,8 @@
 #include <experimental/vector>
 #include <array>
 #include <string>
-#include <fstream>
 #include <unordered_map>
 #include <range/v3/all.hpp>
-#include <iostream>
 
 namespace EARRINGS {
 
@@ -34,23 +32,24 @@ bool detect_low_complexity(
     return false;
 }
 
-size_t estimate_umi_len(
+size_t estimate_tags3_len(
     const std::vector<std::string>& tails,
     const std::string& adapter_seq
 ) {
-    if (adapter_seq.size() < 5) return 0;
+    constexpr size_t CHECK_LEN = 10;
+    if (adapter_seq.size() < CHECK_LEN) return 0;
 
-    const std::string_view adapter_prefix(adapter_seq.data(), 5);
-    std::unordered_map<size_t, size_t> umi_len_counts;
+    const std::string_view adapter_prefix(adapter_seq.data(), CHECK_LEN);
+    std::unordered_map<size_t, size_t> tags3_len_counts;
     for (const auto& tail : tails) {
         if (const auto pos = tail.find(adapter_prefix); pos != std::string::npos) {
-            ++umi_len_counts[pos];
+            ++tags3_len_counts[pos];
         }
     }
 
-    if (umi_len_counts.empty()) return 0;
+    if (tags3_len_counts.empty()) return 0;
 
-    return ranges::max_element(umi_len_counts, {}, &std::pair<const size_t, size_t>::second)->first;
+    return ranges::max_element(tags3_len_counts, {}, &std::pair<const size_t, size_t>::second)->first;
 }
 
 // max_try is set to 5 in sensitive mode
