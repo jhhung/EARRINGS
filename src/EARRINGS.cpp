@@ -11,6 +11,8 @@
 #include <EARRINGS/estimate_adapter_from_BAMS.hpp>
 #include <EARRINGS/common.hpp>
 #include <biovoltron/applications/adapter_trimmer/single_end/skewer/main.hpp>
+#include <biovoltron/algo/align/tailor/bidirectional_index.hpp>
+#include <biovoltron/file_io/fasta.hpp>
 
 void init_single(int argc, const char* argv[]);
 void init_paired(int argc, const char* argv[]);
@@ -331,20 +333,11 @@ index once for a specific reference which is the source of the target reads.
                 records.emplace_back(fa.name, fa.seq);
             }
 
-            biovoltron::Index index;
-            index.make_index(records);
+            biovoltron::BidirectionalIndex<SA_INTV> bidir_index;
+            bidir_index.make_index(records);
             std::ofstream table{vm["index_prefix"].as<std::string>() + ".table"};
-            index.save(table);
-
-            std::vector<biovoltron::FastaRecord<>> rc_records;
-            for (const auto& record : records) {
-                rc_records.emplace_back(record.name, biovoltron::Codec::rev_comp(record.seq));
-            }
-
-            biovoltron::Index rc_index;
-            rc_index.make_index(rc_records);
-            std::ofstream rc_table{vm["index_prefix"].as<std::string>() + ".rc_table"};
-            rc_index.save(rc_table);
+            std::ofstream rev_table{vm["index_prefix"].as<std::string>() + ".rev_table"};
+            bidir_index.save(table, rev_table);
         }
     } catch (std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl << opts << std::endl;
@@ -475,9 +468,9 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         if (vm.count("index_prefix")) {
             index_prefix = vm["index_prefix"].as<std::string>();
             if (!std::filesystem::exists(index_prefix + ".table") ||
-                !std::filesystem::exists(index_prefix + ".rc_table")) {
+                !std::filesystem::exists(index_prefix + ".rev_table")) {
                 throw std::runtime_error(
-                    "Index " + index_prefix + ".table or " + index_prefix + ".rc_table "
+                    "Index " + index_prefix + ".table or " + index_prefix + ".rev_table "
                     "does not exist! Please build index first."
                 );
             }
@@ -832,9 +825,9 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
         if (vm.count("index_prefix")) {
             index_prefix = vm["index_prefix"].as<std::string>();
             if (!std::filesystem::exists(index_prefix + ".table") ||
-                !std::filesystem::exists(index_prefix + ".rc_table")) {
+                !std::filesystem::exists(index_prefix + ".rev_table")) {
                 throw std::runtime_error(
-                    "Index " + index_prefix + ".table or " + index_prefix + ".rc_table "
+                    "Index " + index_prefix + ".table or " + index_prefix + ".rev_table "
                     "does not exist! Please build index first."
                 );
             }

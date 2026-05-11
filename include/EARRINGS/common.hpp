@@ -20,7 +20,8 @@ size_t record_line = 4;
 constexpr size_t DETECT_N_READS = 10000;
 
 // for SE
-std::string index_prefix; 
+constexpr int SA_INTV = 64;
+std::string index_prefix;
 size_t seed_len(18);
 size_t min_multi(0);
 float prune_factor(0.1);

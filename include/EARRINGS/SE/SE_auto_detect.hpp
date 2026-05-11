@@ -1,6 +1,6 @@
 #pragma once
 #include <biovoltron/algo/align/tailor/tailor.hpp>
-#include <biovoltron/algo/align/tailor/index.hpp>
+#include <biovoltron/algo/align/tailor/bidirectional_index.hpp>
 #include <biovoltron/file_io/fasta.hpp>
 #include <biovoltron/file_io/fastq.hpp>
 #include <experimental/vector>
@@ -20,6 +20,8 @@
 #include <atomic>
 #include <utility>
 #include <vector>
+#include <unordered_map>
+#include <utility>
 
 using namespace EARRINGS;
 namespace EARRINGS {
@@ -57,27 +59,39 @@ std::pair<size_t, std::vector<std::string>> tailor_pipeline(
             records.emplace_back(*it);
         }
 
-#pragma omp parallel for schedule(dynamic, chunk_size) num_threads(thread_num)
+        #pragma omp parallel for schedule(dynamic, chunk_size) num_threads(thread_num)
         for (auto&& record : records) {
-            const auto alignment = tailor.search_with_extend5(record);
+            auto aln_pair = tailor.search(record);
+            const auto& [fwd_aln, rev_aln] = aln_pair;
+            const auto& alignment = fwd_aln.hits.empty() ? rev_aln : fwd_aln;
 
-#pragma omp critical
-            {
-                if (alignment.head_pos != -1) ++head_lens[alignment.head_pos];
-                if (alignment.tail_pos != -1) tails.emplace_back(alignment.seq.substr(alignment.tail_pos));
+            if (!alignment.hits.empty()) {
+                if (alignment.head_pos != static_cast<uint32_t>(-1)) {
+                    #pragma omp critical (head)
+                    ++head_lens[alignment.head_pos];
+                }
+
+                if (alignment.tail_pos != static_cast<uint32_t>(-1)) {
+                    auto tail = alignment.seq.substr(alignment.tail_pos);
+                    #pragma omp critical (tail)
+                    tails.push_back(std::move(tail));
+                }
             }
         }
     }
 
-    return {ranges::max_element(head_lens, {}, &std::pair<const size_t, size_t>::second)->first, tails};
+    const auto head_len = head_lens.empty()
+        ? size_t{}
+        : ranges::max_element(head_lens, {}, &std::pair<const size_t, size_t>::second)->first;
+
+    return {head_len, tails};
 }
 
 std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::string &reads_path) {
-    biovoltron::Index fm_index, rc_fm_index;
-    std::ifstream fm_ifs{index_prefix + ".table"}, rc_fm_ifs{index_prefix + ".rc_table"};
-    fm_index.load(fm_ifs);
-    rc_fm_index.load(rc_fm_ifs);
-    biovoltron::Tailor tailor{fm_index, rc_fm_index};
+    biovoltron::BidirectionalIndex<SA_INTV> bidir_index;
+    std::ifstream fm_ifs{index_prefix + ".table"}, rev_fm_ifs{index_prefix + ".rev_table"};
+    bidir_index.load(fm_ifs, rev_fm_ifs);
+    biovoltron::Tailor tailor{bidir_index};
     tailor.seed_len = seed_len;
     tailor.allow_seed_mismatch = !no_mismatch;
     tailor.max_multi = 1;
@@ -197,15 +211,13 @@ std::string trim_heads_to_tmpfile(std::string& reads_path, size_t head_len, std:
                     if (umi_idx != num_tags5) rec.name += ":" + rec_tags[umi_idx];
                 }
 
-                rec.seq = rec.seq.substr(head_len);
-                if constexpr (std::is_same_v<Record, biovoltron::FastqRecord<>>) rec.qual = rec.qual.substr(head_len);
+                rec.seq.erase(0, head_len);
+                if constexpr (std::is_same_v<Record, biovoltron::FastqRecord<>>) rec.qual.erase(0, head_len);
                 oss << rec << '\n';
             }
 
             #pragma omp critical
-            {
-                ofs << oss.str();
-            }
+            ofs << oss.str();
         }
     };
     if (is_fastq) {
