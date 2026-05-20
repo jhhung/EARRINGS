@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <filesystem>
+#include <thread>
+#include <unistd.h>
 #include <boost/program_options.hpp>
 #include <range/v3/all.hpp>
 #include <EARRINGS/SE/SE_auto_detect.hpp>
@@ -59,8 +61,6 @@ int main(int argc, const char* argv[]) {
     }
 
     if (std::string(argv[1]) == "single") {
-        skewer::cParameter para;
-        char errMsg[256];
         init_single(argc, argv);
 
         if (is_bam) {
@@ -82,51 +82,60 @@ int main(int argc, const char* argv[]) {
         std::vector<std::vector<std::string>> tags5, tags3;
 
         auto [head_len, adapter3_info] = seat_adapter_auto_detect(ifs_name[0]);  // auto-detect adapter
-        auto trimmed_file = head_len > 0 ? trim_heads_to_tmpfile(ifs_name[0], head_len, tags5) : ifs_name[0];
 
         // input, output, min_len, thread, adapter, quiet flag
         std::vector<std::string> skewer_args{
-            "skewer", trimmed_file,
+            "skewer",
             "-o", ofs_name[0],
             "-l", std::to_string(min_length),
-            "-t", std::to_string(thread_num)
+            "-t", std::to_string(thread_num),
+            "-x", std::get<0>(adapter3_info)
         };
         if (is_sensitive) skewer_args.insert(skewer_args.end(), {"-r", "0.2"});
-
-        auto skewer_argv1 = skewer_args
-            | ::ranges::views::transform(&std::string::c_str)
-            | ::ranges::to<std::vector<const char*>>;
-
-        int32_t iRet = para.GetOpt(skewer_argv1.size(), skewer_argv1.data(), errMsg);
-
-        // copy from skewer's main program.
-        if (iRet < 0) {
-            const char* program = strrchr(skewer_argv1[0], '/');
-            program = (program == NULL) ? skewer_argv1[0] : program + 1;
-            if (iRet == -1) {
-                if(para.bEnquireVersion) {
-                    para.PrintVersion(stdout);
-                    return 0;
-                }
-                para.PrintUsage(program, stdout);
-            } else {
-                fprintf(stderr, "%s (%s): %s\n\n", program, para.version, errMsg);
-                para.PrintSimpleUsage(program, stderr);
-            }
-            return 1;
-        }
-
-        skewer_args.insert(skewer_args.end(), {"-x", std::get<0>(adapter3_info)});
         if (std::get<1>(adapter3_info)) skewer_args.emplace_back("-C");
 
-        auto skewer_argv2 = skewer_args
-            | ::ranges::views::transform(&std::string::c_str)
-            | ::ranges::to<std::vector<const char*>>();
+        if (head_len > 0) {
+            skewer_args.insert(skewer_args.begin() + 1, "");  // "" triggers bStdin=true in skewer GetOpt
 
-        skewer::main(skewer_argv2.size(), skewer_argv2.data());
+            int pipefd[2];
+            if (pipe(pipefd) != 0) {
+                throw std::runtime_error("Failed to create pipe for head trimming");
+            }
+
+            std::exception_ptr writer_exc;
+            auto writer = std::thread([&]() {
+                try {
+                    FILE* wfp = fdopen(pipefd[1], "w");
+                    trim_heads_to_stream(ifs_name[0], head_len, tags5, wfp);
+                    fclose(wfp);
+                } catch (...) {
+                    writer_exc = std::current_exception();
+                    close(pipefd[1]);
+                }
+            });
+
+            auto skewer_argv = skewer_args
+                | ::ranges::views::transform(&std::string::c_str)
+                | ::ranges::to<std::vector<const char*>>();
+
+            FILE* rfp = fdopen(pipefd[0], "r");
+            skewer::mainStream(skewer_argv.size(), skewer_argv.data(), rfp);
+            fclose(rfp);
+
+            writer.join();
+            if (writer_exc) std::rethrow_exception(writer_exc);
+        } else {
+            skewer_args.insert(skewer_args.begin() + 1, ifs_name[0]);
+
+            auto skewer_argv = skewer_args
+                | ::ranges::views::transform(&std::string::c_str)
+                | ::ranges::to<std::vector<const char*>>();
+
+            skewer::main(skewer_argv.size(), skewer_argv.data());
+        }
+
         if (!tag_structure3.empty()) trim_tags3(tags3, std::get<0>(adapter3_info));
         if (!tag_structure5.empty() || !tag_structure3.empty()) export_tags_tsv(tags5, tags3);
-        if (head_len > 0) std::remove(trimmed_file.c_str());
     } else if (std::string(argv[1]) == "paired") {
         init_paired(argc, argv);
 
