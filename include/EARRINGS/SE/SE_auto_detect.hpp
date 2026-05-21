@@ -7,7 +7,6 @@
 #include <EARRINGS/graph.hpp>
 #include <EARRINGS/common.hpp>
 #include <EARRINGS/assemble_adapters.hpp>
-#include <EARRINGS/SE/format_reader.hpp>
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
@@ -28,13 +27,12 @@ namespace EARRINGS {
 
 auto make_input_view(std::istream &ifs) -> ranges::any_view<biovoltron::FastqRecord<>> {
     if (is_fastq) {
-        constexpr EARRINGS::format_reader_fn<biovoltron::FastqRecord<>> fastq_reader{};
-        return ifs | fastq_reader();
+        return ranges::istream_range<biovoltron::FastqRecord<>>(ifs);
     } else {
-        constexpr EARRINGS::format_reader_fn<biovoltron::FastaRecord<>> fasta_reader{};
-        return ifs | fasta_reader() | ranges::view::transform([](const auto &rec) {
-            return biovoltron::FastqRecord<>{rec.name, rec.seq, std::string(rec.seq.size(), 'I')};
-        });
+        return ranges::istream_range<biovoltron::FastaRecord<>>(ifs)
+            | ranges::views::transform([](const auto &rec) {
+                return biovoltron::FastqRecord<>{rec.name, rec.seq, {}};
+            });
     }
 }
 
