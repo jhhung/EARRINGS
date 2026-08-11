@@ -789,7 +789,7 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
         ("max_seed_len,d",
          boost::program_options::
             value<size_t>()->default_value(25),
-            "minimum seed length for the special small RNA mode. (default: 25)")
+            "maximum seed length for the special small RNA mode. (default: 25)")
         ("output,o",
          boost::program_options::
             value<std::string>(&ofs_name[0])->default_value("trimmed_sr"),

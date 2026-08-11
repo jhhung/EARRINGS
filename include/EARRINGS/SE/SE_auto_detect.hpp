@@ -15,6 +15,7 @@
 #include <omp.h>
 #include <string>
 #include <cmath>
+#include <limits>
 #include <fstream>
 #include <atomic>
 #include <utility>
@@ -95,8 +96,9 @@ std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::st
     biovoltron::Tailor tailor{bidir_index};
     tailor.seed_len = seed_len;
     tailor.allow_seed_mismatch = !no_mismatch;
-    tailor.max_multi = 1;
+    tailor.max_multi = min_multi == 0 ? std::numeric_limits<size_t>::max() : min_multi;
     tailor.skipped_5prime_len = skipped_5prime_len;
+    tailor.min_head_pos = tags5_total_len;
 
     size_t head_len;
     std::vector<std::string> tails;
