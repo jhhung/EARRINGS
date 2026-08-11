@@ -141,11 +141,41 @@ std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::st
             : adapter3.substr(0, 32);
 
         std::cout << "3' adapter found: " << adapter3 << '\n';
+
+        // The swallow check below is only meaningful when adapter3 was
+        // actually assembled from this data; DEFAULT_ADAPTER1 (the fallback
+        // above) has no relationship to these reads' tails, so estimating
+        // against it would misfire and strip real adapter bases for no reason.
+        if (!tag_structure3.empty()) {
+            estimated_tags3_len = estimate_tags3_len(tails, adapter3);
+            std::cout << "estimated tags3 length: " << estimated_tags3_len << '\n';
+
+            // estimated_tags3_len is a diagnostic, not the extraction boundary: it
+            // measures how much of the tail is NOT part of the assembled adapter3.
+            // If that's less than the declared tags3_total_len, the missing length
+            // was assembled into adapter3 itself (a tag with content constant/
+            // frequent enough to be indistinguishable from the real adapter by the
+            // de Bruijn assembly). Strip that many bases off adapter3's front so
+            // skewer only removes the genuine adapter, leaving tags3 physically
+            // intact for trim_tags3 to extract per-read afterward.
+            if (tags3_total_len > estimated_tags3_len) {
+                const auto swallowed_len = tags3_total_len - estimated_tags3_len;
+                constexpr size_t MIN_REMAINING_ADAPTER_LEN = 10;
+
+                if (adapter3.size() >= swallowed_len + MIN_REMAINING_ADAPTER_LEN) {
+                    std::cout << "3' tags appear to be absorbed into the assembled adapter; "
+                               << "stripping " << swallowed_len << " leading base(s) from it\n";
+                    adapter3 = adapter3.substr(swallowed_len);
+                } else {
+                    std::cout << "[WARN] 3' tags appear to be absorbed into the assembled adapter, "
+                               << "but stripping " << swallowed_len << " leading base(s) would leave "
+                               << "too little adapter sequence to trim reliably; leaving it as-is\n";
+                }
+            }
+        }
     }
 
     std::get<0>(adapter3_info) = adapter3;
-
-    if (!tag_structure3.empty()) estimated_tags3_len = estimate_tags3_len(tails, adapter3);
 
     return {head_len, adapter3_info};
 }

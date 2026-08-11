@@ -16,7 +16,7 @@ namespace EARRINGS {
 
 void parse_tag_structures(const std::string& structure_str5, const std::string& structure_str3) {
     std::unordered_set<std::string> seen_tags;
-    auto parse_tag_structure = [&](auto& tag_structure, const std::string& structure_str, size_t& tags_total_len) {
+    auto parse_tag_structure = [&](auto& tag_structure, const std::string& structure_str) {
         std::istringstream ss(structure_str);
         std::string tag;
         while (std::getline(ss, tag, ',')) {
@@ -33,16 +33,17 @@ void parse_tag_structures(const std::string& structure_str5, const std::string& 
             if (!seen_tags.insert(name).second) {
                 throw std::invalid_argument("Duplicate tag name in tag structures: " + name);
             }
-            tags_total_len += length;
             tag_structure.emplace_back(name, length);
         }
     };
-    parse_tag_structure(tag_structure5, structure_str5, tags5_total_len);
+    parse_tag_structure(tag_structure5, structure_str5);
+    for (const auto& [name, length] : tag_structure5) tags5_total_len += length;
     if (!tag_structure5.empty()) skipped_5prime_len += tags5_total_len;
-    parse_tag_structure(tag_structure3, structure_str3, tags3_total_len);
+    parse_tag_structure(tag_structure3, structure_str3);
+    for (const auto& [name, length] : tag_structure3) tags3_total_len += length;
 }
 
-void trim_tags3(auto& tags3, const std::string& adapter3) {
+void trim_tags3(auto& tags3) {
     const std::string filename = std::string("trimmed_se.") + (is_fastq ? "fastq-trimmed.fastq" : "fasta-trimmed.fasta");
     std::ifstream ifs(filename);
     if (!ifs) return;
@@ -61,15 +62,10 @@ void trim_tags3(auto& tags3, const std::string& adapter3) {
         }
         const auto num_records = records.size();
 
-        std::vector<std::string> template_tags(num_tags3);
-        for (auto i = size_t{}, adapter3_i = size_t{}, acc_len = size_t{}; i < num_tags3; ++i) {
-            const auto len = tag_structure3[i].second;
-            template_tags[i].resize(len);
-            for (auto j = size_t{}; j < len; ++j, ++acc_len) {
-                template_tags[i][j] = acc_len >= estimated_tags3_len ? adapter3[adapter3_i++] : ' ';
-            }
-        }
-        tags3.assign(num_records, template_tags);
+        // Missing tags3 (read too short after adapter trimming) are left as
+        // empty strings, an unambiguous "no data" marker distinct from any
+        // real tag value (declared tag lengths are always > 0).
+        tags3.assign(num_records, std::vector<std::string>(num_tags3));
 
         #pragma omp parallel for schedule(static)
         for (auto idx = size_t{}; idx < num_records; ++idx) {
@@ -77,21 +73,16 @@ void trim_tags3(auto& tags3, const std::string& adapter3) {
             auto& rec_tags = tags3[idx];
 
             const auto seq_len = rec.seq.size();
-            if (seq_len < estimated_tags3_len) continue;
+            if (seq_len < tags3_total_len) continue;
 
-            rec_tags.resize(num_tags3);
-            auto remaining = estimated_tags3_len;
-            for (auto i = size_t{}, seq_i = seq_len - estimated_tags3_len; i < num_tags3 && remaining > 0; ++i) {
-                const auto copy_len = std::min(tag_structure3[i].second, remaining);
-                rec_tags[i].resize(copy_len);
-                for (auto j = size_t{}; j < copy_len; ++j) {
-                    rec_tags[i][j] = rec.seq[seq_i++];
-                }
-                remaining -= copy_len;
+            const auto insert_len = seq_len - tags3_total_len;
+            for (auto i = size_t{}, seq_i = insert_len; i < num_tags3; ++i) {
+                const auto len = tag_structure3[i].second;
+                rec_tags[i] = rec.seq.substr(seq_i, len);
+                seq_i += len;
             }
             if (umi_idx != num_tags3) rec.name += ":" + rec_tags[umi_idx];
 
-            const auto insert_len = seq_len - estimated_tags3_len;
             rec.seq = rec.seq.substr(0, insert_len);
             if constexpr (std::is_same_v<Record, biovoltron::FastqRecord<>>) rec.qual = rec.qual.substr(0, insert_len);
         }

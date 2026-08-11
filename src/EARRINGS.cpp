@@ -134,7 +134,7 @@ int main(int argc, const char* argv[]) {
             skewer::main(skewer_argv.size(), skewer_argv.data());
         }
 
-        if (!tag_structure3.empty()) trim_tags3(tags3, std::get<0>(adapter3_info));
+        if (!tag_structure3.empty()) trim_tags3(tags3);
         if (!tag_structure5.empty() || !tag_structure3.empty()) export_tags_tsv(tags5, tags3);
     } else if (std::string(argv[1]) == "paired") {
         init_paired(argc, argv);
