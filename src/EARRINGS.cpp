@@ -339,6 +339,9 @@ index once for a specific reference which is the source of the target reads.
             std::vector<biovoltron::FastaRecord<>> records;
             biovoltron::FastaRecord<> fa;
             while (input >> fa) {
+                std::ranges::transform(fa.seq, fa.seq.begin(), [](char c) {
+                    return c == 'U' ? 'T' : c == 'u' ? 't' : c;
+                });
                 records.emplace_back(fa.name, fa.seq);
             }
 
