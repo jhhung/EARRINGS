@@ -80,6 +80,7 @@ int main(int argc, const char* argv[]) {
         }
 
         std::vector<std::vector<std::string>> tags5, tags3;
+        std::vector<std::string> names5, names3;
 
         auto [head_len, adapter3_info] = seat_adapter_auto_detect(ifs_name[0]);  // auto-detect adapter
 
@@ -106,7 +107,7 @@ int main(int argc, const char* argv[]) {
             auto writer = std::thread([&]() {
                 try {
                     FILE* wfp = fdopen(pipefd[1], "w");
-                    trim_heads_to_stream(ifs_name[0], head_len, tags5, wfp);
+                    trim_heads_to_stream(ifs_name[0], head_len, tags5, names5, wfp);
                     fclose(wfp);
                 } catch (...) {
                     writer_exc = std::current_exception();
@@ -134,8 +135,8 @@ int main(int argc, const char* argv[]) {
             skewer::main(skewer_argv.size(), skewer_argv.data());
         }
 
-        if (!tag_structure3.empty()) trim_tags3(tags3);
-        if (!tag_structure5.empty() || !tag_structure3.empty()) export_tags_tsv(tags5, tags3);
+        if (!tag_structure3.empty()) trim_tags3(tags3, names3);
+        if (!tag_structure5.empty() || !tag_structure3.empty()) export_tags_tsv(names5, tags5, names3, tags3);
     } else if (std::string(argv[1]) == "paired") {
         init_paired(argc, argv);
 

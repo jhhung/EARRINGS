@@ -32,12 +32,16 @@ bool detect_low_complexity(
     return false;
 }
 
-size_t estimate_tags3_len(
+// Returns {estimated tag3 length, reliable}. The length is the offset at which
+// adapter3's prefix first appears across the tails (i.e. how many tag bases sit
+// outside the assembled adapter). `reliable` is false when the signal is too
+// weak or too flat to base the insert/tag boundary on.
+std::pair<size_t, bool> estimate_tags3_len(
     const std::vector<std::string>& tails,
     const std::string& adapter_seq
 ) {
     constexpr size_t CHECK_LEN = 10;
-    if (adapter_seq.size() < CHECK_LEN) return 0;
+    if (adapter_seq.size() < CHECK_LEN) return {0, false};
 
     const std::string_view adapter_prefix(adapter_seq.data(), CHECK_LEN);
     std::unordered_map<size_t, size_t> tags3_len_counts;
@@ -47,9 +51,18 @@ size_t estimate_tags3_len(
         }
     }
 
-    if (tags3_len_counts.empty()) return 0;
+    if (tags3_len_counts.empty()) return {0, false};
 
-    return ranges::max_element(tags3_len_counts, {}, &std::pair<const size_t, size_t>::second)->first;
+    size_t matched = 0;
+    for (const auto& [pos, cnt] : tags3_len_counts) matched += cnt;
+
+    const auto best = ranges::max_element(tags3_len_counts, {}, &std::pair<const size_t, size_t>::second);
+
+    // The estimate is meaningful only when one offset clearly dominates: a sharp
+    // peak means a fixed insert/tag boundary, a flat spread means we are guessing.
+    const bool reliable = best->second * 2 >= matched;   // top offset holds >= half the hits
+
+    return {best->first, reliable};
 }
 
 // max_try is set to 5 in sensitive mode

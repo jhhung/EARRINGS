@@ -7,6 +7,12 @@
 #include <filesystem>
 #include <EARRINGS/version.h>
 
+// first whitespace-delimited token of a read header, used as the join key
+// between tags.tsv and the trimmed reads / original input.
+inline std::string read_qname(const std::string& name) {
+    return name.substr(0, name.find(' '));
+}
+
 #define GET_STR(arg)			#arg
 #define GET_VERSION(ver)		GET_STR(ver)
 #define GET_EARRINGS_VERSION	GET_VERSION(EARRINGS_VERSION)
@@ -34,6 +40,18 @@ size_t tags5_total_len(0);
 std::vector<std::pair<std::string, size_t>> tag_structure3;
 size_t tags3_total_len(0);
 size_t estimated_tags3_len(0);
+// How the declared 3' tag region is split between two sources (set during
+// adapter detection, consumed by trim_tags3):
+//   tags3_kept_on_read  - trailing bases of skewer's output that are genuine
+//                         tag bases and must be peeled from each read.
+//   tags3_absorbed_prefix - the innermost, ~constant tag bases that got
+//                         assembled into adapter3 and are therefore no longer
+//                         on the read; the same value for every read, taken
+//                         from adapter3's prefix (insert->adapter order).
+// tags3_kept_on_read + tags3_absorbed_prefix.size() == tags3_total_len, except
+// when extraction is disabled (unreliable estimate) where both are empty/0.
+size_t tags3_kept_on_read(0);
+std::string tags3_absorbed_prefix;
 
 // for PE
 size_t thread_num(1);
