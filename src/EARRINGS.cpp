@@ -346,11 +346,10 @@ index once for a specific reference which is the source of the target reads.
                 records.emplace_back(fa.name, fa.seq);
             }
 
-            biovoltron::BidirectionalIndex<SA_INTV> bidir_index;
+            biovoltron::BidirectionalIndex<SA_INTV, IndexSizeType, IndexSorter> bidir_index;
             bidir_index.make_index(records);
             std::ofstream table{vm["index_prefix"].as<std::string>() + ".table"};
-            std::ofstream rev_table{vm["index_prefix"].as<std::string>() + ".rev_table"};
-            bidir_index.save(table, rev_table);
+            bidir_index.save(table);
         }
     } catch (std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl << opts << std::endl;
@@ -480,10 +479,9 @@ Skewer with adapter parameters passed by EARRINGS automatically.
 
         if (vm.count("index_prefix")) {
             index_prefix = vm["index_prefix"].as<std::string>();
-            if (!std::filesystem::exists(index_prefix + ".table") ||
-                !std::filesystem::exists(index_prefix + ".rev_table")) {
+            if (!std::filesystem::exists(index_prefix + ".table")) {
                 throw std::runtime_error(
-                    "Index " + index_prefix + ".table or " + index_prefix + ".rev_table "
+                    "Index " + index_prefix + ".table "
                     "does not exist! Please build index first."
                 );
             }
@@ -837,10 +835,9 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
 
         if (vm.count("index_prefix")) {
             index_prefix = vm["index_prefix"].as<std::string>();
-            if (!std::filesystem::exists(index_prefix + ".table") ||
-                !std::filesystem::exists(index_prefix + ".rev_table")) {
+            if (!std::filesystem::exists(index_prefix + ".table")) {
                 throw std::runtime_error(
-                    "Index " + index_prefix + ".table or " + index_prefix + ".rev_table "
+                    "Index " + index_prefix + ".table "
                     "does not exist! Please build index first."
                 );
             }

@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -27,6 +28,12 @@ constexpr size_t DETECT_N_READS = 10000;
 
 // for SE
 constexpr int SA_INTV = 64;
+// FMD index over F + revcomp(F) doubles the text length, so a whole-genome
+// reference (e.g. GRCh38, ~3.1 Gbp -> ~6.2 Gbp text) overflows uint32.
+// KISS1Sorter (the FMIndex default) does not support 64-bit indices, so use
+// the parallel SAIS sorter for the suffix array.
+using IndexSizeType = std::uint64_t;
+using IndexSorter = biovoltron::PsaisSorter<IndexSizeType>;
 std::string index_prefix;
 size_t seed_len(18);
 size_t min_multi(0);

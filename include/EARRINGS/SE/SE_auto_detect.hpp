@@ -91,9 +91,9 @@ std::pair<size_t, std::vector<std::string>> tailor_pipeline(
 }
 
 std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::string &reads_path) {
-    biovoltron::BidirectionalIndex<SA_INTV> bidir_index;
-    std::ifstream fm_ifs{index_prefix + ".table"}, rev_fm_ifs{index_prefix + ".rev_table"};
-    bidir_index.load(fm_ifs, rev_fm_ifs);
+    biovoltron::BidirectionalIndex<SA_INTV, IndexSizeType, IndexSorter> bidir_index;
+    std::ifstream fm_ifs{index_prefix + ".table"};
+    bidir_index.load(fm_ifs);
     biovoltron::Tailor tailor{bidir_index};
     tailor.seed_len = seed_len;
     tailor.allow_seed_mismatch = !no_mismatch;
