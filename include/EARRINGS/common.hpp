@@ -27,13 +27,28 @@ size_t record_line = 4;
 constexpr size_t DETECT_N_READS = 10000;
 
 // for SE
-constexpr int SA_INTV = 64;
 // FMD index over F + revcomp(F) doubles the text length, so a whole-genome
 // reference (e.g. GRCh38, ~3.1 Gbp -> ~6.2 Gbp text) overflows uint32.
 // KISS1Sorter (the FMIndex default) does not support 64-bit indices, so use
 // the parallel SAIS sorter for the suffix array.
 using IndexSizeType = std::uint64_t;
 using IndexSorter = biovoltron::PsaisSorter<IndexSizeType>;
+using DenseIndex = biovoltron::BidirectionalIndex<true, IndexSizeType, IndexSorter>;
+using SampledIndex = biovoltron::BidirectionalIndex<false, IndexSizeType, IndexSorter>;
+
+// SA_INTV bucket, chosen at `build` time from the reference's total bp and
+// persisted in the .table file (see EARRINGS.cpp / SE_auto_detect.hpp).
+// Each value is an empirical per-scale winner, not interpolated; other
+// candidates (32/64/128/512) never won at any tested scale, hence absent.
+// Machine-dependent (NUMA, cache size, thread count) -- see sa_intv_bench/.
+struct SaIntvBucket { bool dense; int sa_intv; };
+inline SaIntvBucket pick_sa_intv_bucket(std::size_t total_bp) {
+    if (total_bp <= 100'000)         return {true, 1};
+    if (total_bp <= 80'000'000)      return {false, 16};
+    if (total_bp <= 2'000'000'000)   return {false, 256};
+    return {false, 1024};
+}
+
 std::string index_prefix;
 size_t seed_len(18);
 size_t min_multi(0);

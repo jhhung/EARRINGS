@@ -90,10 +90,9 @@ std::pair<size_t, std::vector<std::string>> tailor_pipeline(
     return {head_len, tails};
 }
 
-std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::string &reads_path) {
-    biovoltron::BidirectionalIndex<SA_INTV, IndexSizeType, IndexSorter> bidir_index;
-    std::ifstream fm_ifs{index_prefix + ".table"};
-    bidir_index.load(fm_ifs);
+template <class IndexType>
+std::pair<size_t, std::pair<std::string, bool>>
+seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
     biovoltron::Tailor tailor{bidir_index};
     tailor.seed_len = seed_len;
     tailor.allow_seed_mismatch = !no_mismatch;
@@ -213,6 +212,26 @@ std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::st
     std::get<0>(adapter3_info) = adapter3;
 
     return {head_len, adapter3_info};
+}
+
+// .table files start with a 1-byte flag (written by `build` in EARRINGS.cpp)
+// saying whether the index is Dense (SA_INTV bucket <= 100Kbp) or Sampled,
+// since that determines which compile-time BidirectionalIndex instantiation
+// load() must be called on.
+std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::string &reads_path) {
+    std::ifstream fm_ifs{index_prefix + ".table"};
+
+    char dense_flag = 0;
+    fm_ifs.read(&dense_flag, 1);
+    if (dense_flag) {
+        DenseIndex bidir_index;
+        bidir_index.load(fm_ifs);
+        return seat_adapter_auto_detect_impl(reads_path, bidir_index);
+    } else {
+        SampledIndex bidir_index;
+        bidir_index.load(fm_ifs);
+        return seat_adapter_auto_detect_impl(reads_path, bidir_index);
+    }
 }
 
 void trim_heads_to_stream(std::string& reads_path, size_t head_len, std::vector<std::vector<std::string>>& tags5, std::vector<std::string>& names5, FILE* wfp) {

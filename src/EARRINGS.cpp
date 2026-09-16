@@ -346,10 +346,24 @@ index once for a specific reference which is the source of the target reads.
                 records.emplace_back(fa.name, fa.seq);
             }
 
-            biovoltron::BidirectionalIndex<SA_INTV, IndexSizeType, IndexSorter> bidir_index;
-            bidir_index.make_index(records);
+            std::size_t total_bp = 0;
+            for (const auto& r : records) total_bp += r.seq.size();
+            const auto bucket = pick_sa_intv_bucket(total_bp);
+
             std::ofstream table{vm["index_prefix"].as<std::string>() + ".table"};
-            bidir_index.save(table);
+            const char dense_flag = bucket.dense ? char{1} : char{0};
+            table.write(&dense_flag, 1);
+
+            if (bucket.dense) {
+                DenseIndex bidir_index;
+                bidir_index.make_index(records);
+                bidir_index.save(table);
+            } else {
+                SampledIndex bidir_index;
+                bidir_index.set_sa_intv(bucket.sa_intv);
+                bidir_index.make_index(records);
+                bidir_index.save(table);
+            }
         }
     } catch (std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl << opts << std::endl;
