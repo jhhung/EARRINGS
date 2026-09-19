@@ -1,3 +1,4 @@
+#include <bit>
 #include <chrono>
 #include <iostream>
 #include <string>
@@ -316,7 +317,13 @@ index once for a specific reference which is the source of the target reads.
         ("index_prefix,p",
          boost::program_options::
             value<std::string>()->required(),
-            "An user-defined index prefix for index table. (required)");
+            "An user-defined index prefix for index table. (required)")
+        ("sa_intv",
+         boost::program_options::
+            value<int>(),
+            "Override the auto-picked SA_INTV (suffix-array sampling "
+            "interval). Must be a power of two. By default, SA_INTV is "
+            "chosen automatically from the reference's total size.");
 
         boost::program_options::variables_map vm;
         boost::program_options::store(
@@ -348,7 +355,18 @@ index once for a specific reference which is the source of the target reads.
 
             std::size_t total_bp = 0;
             for (const auto& r : records) total_bp += r.seq.size();
-            const auto bucket = pick_sa_intv_bucket(total_bp);
+            auto bucket = pick_sa_intv_bucket(total_bp);
+            if (vm.count("sa_intv")) {
+                const int sa_intv = vm["sa_intv"].as<int>();
+                if (sa_intv <= 0 || !std::has_single_bit(static_cast<unsigned>(sa_intv))) {
+                    throw std::runtime_error(
+                        "--sa_intv must be a positive power of two (got " +
+                        std::to_string(sa_intv) + ")");
+                }
+                // Force the sampled path so a tiny reference's auto-Dense pick can't silently drop this override.
+                bucket.dense = false;
+                bucket.sa_intv = sa_intv;
+            }
             const bool use_64bit = pick_use_64bit_index(total_bp);
 
             std::ofstream table{vm["index_prefix"].as<std::string>() + ".table"};
