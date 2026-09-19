@@ -216,21 +216,36 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
 
 // .table files start with a 1-byte flag (written by `build` in EARRINGS.cpp)
 // saying whether the index is Dense (SA_INTV bucket <= 100Kbp) or Sampled,
-// since that determines which compile-time BidirectionalIndex instantiation
-// load() must be called on.
+// then a size_flag byte saying whether it's the 32-bit or 64-bit
+// instantiation -- together they determine which compile-time
+// BidirectionalIndex instantiation load() must be called on.
 std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::string &reads_path) {
     std::ifstream fm_ifs{index_prefix + ".table"};
 
     char dense_flag = 0;
+    char size_flag = 0;
     fm_ifs.read(&dense_flag, 1);
-    if (dense_flag) {
-        DenseIndex bidir_index;
-        bidir_index.load(fm_ifs);
-        return seat_adapter_auto_detect_impl(reads_path, bidir_index);
+    fm_ifs.read(&size_flag, 1);
+    if (size_flag) {
+        if (dense_flag) {
+            DenseIndex64 bidir_index;
+            bidir_index.load(fm_ifs);
+            return seat_adapter_auto_detect_impl(reads_path, bidir_index);
+        } else {
+            SampledIndex64 bidir_index;
+            bidir_index.load(fm_ifs);
+            return seat_adapter_auto_detect_impl(reads_path, bidir_index);
+        }
     } else {
-        SampledIndex bidir_index;
-        bidir_index.load(fm_ifs);
-        return seat_adapter_auto_detect_impl(reads_path, bidir_index);
+        if (dense_flag) {
+            DenseIndex32 bidir_index;
+            bidir_index.load(fm_ifs);
+            return seat_adapter_auto_detect_impl(reads_path, bidir_index);
+        } else {
+            SampledIndex32 bidir_index;
+            bidir_index.load(fm_ifs);
+            return seat_adapter_auto_detect_impl(reads_path, bidir_index);
+        }
     }
 }
 

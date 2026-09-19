@@ -349,20 +349,36 @@ index once for a specific reference which is the source of the target reads.
             std::size_t total_bp = 0;
             for (const auto& r : records) total_bp += r.seq.size();
             const auto bucket = pick_sa_intv_bucket(total_bp);
+            const bool use_64bit = pick_use_64bit_index(total_bp);
 
             std::ofstream table{vm["index_prefix"].as<std::string>() + ".table"};
             const char dense_flag = bucket.dense ? char{1} : char{0};
+            const char size_flag = use_64bit ? char{1} : char{0};
             table.write(&dense_flag, 1);
+            table.write(&size_flag, 1);
 
-            if (bucket.dense) {
-                DenseIndex bidir_index;
-                bidir_index.make_index(records);
-                bidir_index.save(table);
+            if (use_64bit) {
+                if (bucket.dense) {
+                    DenseIndex64 bidir_index;
+                    bidir_index.make_index(records);
+                    bidir_index.save(table);
+                } else {
+                    SampledIndex64 bidir_index;
+                    bidir_index.set_sa_intv(bucket.sa_intv);
+                    bidir_index.make_index(records);
+                    bidir_index.save(table);
+                }
             } else {
-                SampledIndex bidir_index;
-                bidir_index.set_sa_intv(bucket.sa_intv);
-                bidir_index.make_index(records);
-                bidir_index.save(table);
+                if (bucket.dense) {
+                    DenseIndex32 bidir_index;
+                    bidir_index.make_index(records);
+                    bidir_index.save(table);
+                } else {
+                    SampledIndex32 bidir_index;
+                    bidir_index.set_sa_intv(bucket.sa_intv);
+                    bidir_index.make_index(records);
+                    bidir_index.save(table);
+                }
             }
         }
     } catch (std::exception& e) {

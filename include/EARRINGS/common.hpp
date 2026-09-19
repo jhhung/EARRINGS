@@ -28,13 +28,23 @@ constexpr size_t DETECT_N_READS = 10000;
 
 // for SE
 // FMD index over F + revcomp(F) doubles the text length, so a whole-genome
-// reference (e.g. GRCh38, ~3.1 Gbp -> ~6.2 Gbp text) overflows uint32.
-// KISS1Sorter (the FMIndex default) does not support 64-bit indices, so use
-// the parallel SAIS sorter for the suffix array.
-using IndexSizeType = std::uint64_t;
-using IndexSorter = biovoltron::PsaisSorter<IndexSizeType>;
-using DenseIndex = biovoltron::BidirectionalIndex<true, IndexSizeType, IndexSorter>;
-using SampledIndex = biovoltron::BidirectionalIndex<false, IndexSizeType, IndexSorter>;
+// reference (e.g. GRCh38, ~3.1 Gbp -> ~6.2 Gbp text) can overflow uint32_t
+// (max ~4.29 Gbp). Above GENOME_SCALE_BP, `build` picks the 64-bit
+// instantiation instead; below it, 32-bit halves the index's memory
+// footprint. The flag is persisted in the .table file (see EARRINGS.cpp /
+// SE_auto_detect.hpp) so `single`/`smallRNA` know which to load() into.
+using IndexSorter32 = biovoltron::PsaisSorter<std::uint32_t>;
+using IndexSorter64 = biovoltron::PsaisSorter<std::uint64_t>;
+using DenseIndex32   = biovoltron::BidirectionalIndex<true,  std::uint32_t, IndexSorter32>;
+using SampledIndex32 = biovoltron::BidirectionalIndex<false, std::uint32_t, IndexSorter32>;
+using DenseIndex64   = biovoltron::BidirectionalIndex<true,  std::uint64_t, IndexSorter64>;
+using SampledIndex64 = biovoltron::BidirectionalIndex<false, std::uint64_t, IndexSorter64>;
+
+// Shared "genome-scale" cutover: below it SA_INTV=256, above it SA_INTV=1024
+// (see pick_sa_intv_bucket), and it also doubles as the 32-bit/64-bit index
+// size_type boundary (see pick_use_64bit_index) -- one number to reason
+// about instead of two independently-tuned ones.
+constexpr std::size_t GENOME_SCALE_BP = 2'000'000'000;
 
 // SA_INTV bucket, chosen at `build` time from the reference's total bp and
 // persisted in the .table file (see EARRINGS.cpp / SE_auto_detect.hpp).
@@ -45,8 +55,12 @@ struct SaIntvBucket { bool dense; int sa_intv; };
 inline SaIntvBucket pick_sa_intv_bucket(std::size_t total_bp) {
     if (total_bp <= 100'000)         return {true, 1};
     if (total_bp <= 80'000'000)      return {false, 16};
-    if (total_bp <= 2'000'000'000)   return {false, 256};
+    if (total_bp <= GENOME_SCALE_BP) return {false, 256};
     return {false, 1024};
+}
+
+inline bool pick_use_64bit_index(std::size_t total_bp) {
+    return total_bp > GENOME_SCALE_BP;
 }
 
 std::string index_prefix;
