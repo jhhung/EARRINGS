@@ -78,6 +78,8 @@ Build mode parameters
 - Optional
   - -h [ --help ]</br>
   Display help message and exit.
+  - --sa_intv arg</br>
+  Override the auto-picked SA_INTV (suffix-array sampling interval). Must be a power of two. By default, SA_INTV is chosen automatically from the reference's total size.
 
 ### **Single-End**
 
@@ -119,14 +121,26 @@ Single-End mode parameters
     - --sensitive</br>
     By default, minimum number of kmers must exceed 10 during assembly adapters. However, if user have confidence that the dataset contains adapters, sensitive mode would be more suitable.</br>
     Under sensitive mode, minimum number of kmers (***--prune_factor***) would not be restricted.
+    - -A [ --max_5adapter_len ] arg (=7)</br>
+    Maximum possible length of the 5' end adapter.
+    - -k [ --init_kmer_size ] arg (=10)</br>
+    The initial size of kmer.
+    - -s [ --kmer_step ] arg (=5)</br>
+    The step size for increasing kmer.
   - Trimming
     - -m [ --min_length ] arg (=0)</br>
     Skip the read if the length of the read is less than ***--min_length*** after trimming.
   - Adapter setting
     - -a [ --adapter1 ] arg (=AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)</br>
     Alternative adapter if auto-detect mechanism fails.
-    - -u [ --UMI ]</br>
-    Estimate the size of UMI sequences, results will be printed to console by default.
+  - Tag structure
+    - -5 [ --5_tag_structure ] arg</br>
+    The structure between the 5' adapter and the insert. Specify each element as name:length, separated by commas, in the actual order. Each name must be unique. The name "UMI" specifically represents the UMI. Example: "UMI:6,cell_bc:8"
+    - -3 [ --3_tag_structure ] arg</br>
+    The structure between the insert and the 3' adapter. Specify each element as name:length, separated by commas, in the actual order. Each name must be unique. The name "UMI" specifically represents the UMI. Example: "UMI:6,cell_bc:8"
+  - Alignment output
+    - --sam arg (implicit 0)</br>
+    Also write ***&lt;output&gt;.sam*** with each read's Tailor alignment against the reference (insert as M, 3' tail as a soft-clip; one record per locus; unmapped reads included; records in input order). This reruns the search pass separately from adapter detection, so it adds real time on large files. Bare ***--sam*** covers the whole input file; pass a number (e.g. ***--sam 50000***) to cap it to that many mapped reads instead.
 
 ### **Paired-End**
 
@@ -215,8 +229,6 @@ Special Small-RNA Single-End mode parameters
   - Adapter setting
     - -a [ --adapter1 ] arg (=AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC)</br>
     Alternative adapter if auto-detect mechanism fails.
-    - -u [ --UMI ]</br>
-    Estimate the size of UMI sequences, results will be printed to console by default.
 
 ### **Skewer**
 
