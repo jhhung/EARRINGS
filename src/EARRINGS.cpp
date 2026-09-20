@@ -161,6 +161,11 @@ int main(int argc, const char* argv[]) {
         PE_trim();
     } else if (std::string(argv[1]) == "smallRNA") {
         skewer::cParameter para;
+        for (int i = 2; i < argc; ++i)
+            if (std::string(argv[i]) == "--sam") {
+                std::cerr << "Error: --sam is only supported in `single` mode\n";
+                return EXIT_FAILURE;
+            }
         init_smallrna(argc, argv);
 
         if (is_bam) {
@@ -508,7 +513,16 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             "The structure between the insert and the 3' adapter. "
             "Specify each element as name:length, separated by commas, in the actual order. "
             "Each name must be unique. The name \"UMI\" specifically represents the UMI. "
-            "Example: \"UMI:6,cell_bc:8\"");
+            "Example: \"UMI:6,cell_bc:8\"")
+        ("sam",
+         boost::program_options::
+            value<std::size_t>()->implicit_value(0),
+            "Also write <output>.sam with each read's Tailor alignment against the "
+            "reference (insert as M, 3' tail as a soft-clip; one record per locus; "
+            "unmapped reads included; records in input order). This reruns the "
+            "search pass separately from adapter detection, so it adds real time on "
+            "large files. Bare --sam covers the whole input file; pass a number "
+            "(e.g. --sam 50000) to cap it to that many mapped reads instead.");
 
         boost::program_options::variables_map vm;
         boost::program_options::store(
@@ -578,6 +592,10 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             if (!structure_str5.empty() || !structure_str3.empty()) {
                 parse_tag_structures(structure_str5, structure_str3);
             }
+        }
+
+        if (vm.count("sam")) {
+            sam_cap = vm["sam"].as<std::size_t>();
         }
 
         std::string fa_ext(".fa"), fasta_ext(".fasta");

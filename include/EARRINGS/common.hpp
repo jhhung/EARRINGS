@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <vector>
 #include <string_view>
@@ -71,6 +72,9 @@ bool no_mismatch(false);
 size_t skipped_5prime_len(7);
 size_t init_kmer_size(10);
 size_t kmer_step(5);
+// Set (bare --sam) means write <output>.sam; the value is the mapped-read
+// cap for that pass, with 0 meaning unlimited (whole file).
+std::optional<std::size_t> sam_cap;
 std::vector<std::pair<std::string, size_t>> tag_structure5;
 size_t tags5_total_len(0);
 std::vector<std::pair<std::string, size_t>> tag_structure3;

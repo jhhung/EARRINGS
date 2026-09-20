@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <limits>
 #include <fstream>
+#include <sstream>
+#include <memory>
 #include <atomic>
 #include <utility>
 #include <vector>
@@ -90,6 +92,123 @@ std::pair<size_t, std::vector<std::string>> tailor_pipeline(
     return {head_len, tails};
 }
 
+// Open the SE reads (plain or gzip) as an istream.
+inline std::unique_ptr<std::istream> open_se_reads(const std::string& reads_path) {
+    if (is_gz_input) {
+        auto ifs = std::make_unique<boost::iostreams::filtering_istream>();
+        ifs->push(boost::iostreams::gzip_decompressor());
+        ifs->push(boost::iostreams::file_source(reads_path, std::ios_base::binary));
+        if (!ifs->good()) throw std::runtime_error("Can't open input gz file: " + reads_path);
+        return ifs;
+    }
+    auto ifs = std::make_unique<std::ifstream>(reads_path);
+    if (!ifs->good()) throw std::runtime_error("Can't open input file: " + reads_path);
+    return ifs;
+}
+
+// Run one independent Tailor search per read and write a SAM file (<output>.sam):
+// insert aligned as M, 3' tail as a soft-clip, one record per reported locus
+// (NH tag = locus count), unmapped reads included. Records are in input order.
+// Opt-in via --sam; cap is the mapped-read limit for this pass (0 = unlimited,
+// i.e. the whole file), independent of adapter detection's own preview window.
+//
+// Known limitations (not SAM-format violations, left as-is): the 5' head/skipped
+// region is reported inside the leading M rather than soft-clipped; MAPQ is a
+// crude 255 - tail_len and is not lowered for multi-mappers; the MD tag is
+// dropped on '-' strand hits (the library reverses it incorrectly).
+template <class Tailor, class Index>
+void write_alignment_sam(const std::string& reads_path, const Tailor& tailor, const Index& bidir_index, std::size_t cap) {
+    // ofs_name[0] carries a .fastq/.fasta suffix (appended in init_single); drop it.
+    std::string base = ofs_name[0];
+    for (std::string_view ext : {".fastq", ".fasta"})
+        if (base.size() > ext.size() && std::string_view(base).substr(base.size() - ext.size()) == ext)
+            base.resize(base.size() - ext.size());
+    const auto sam_path = base + ".sam";
+    std::ofstream ofs(sam_path);
+    if (!ofs) throw std::runtime_error("Cannot open " + sam_path + " for writing");
+
+    ofs << "@HD\tVN:1.6\tSO:unsorted\n";
+    for (const auto& cb : bidir_index.chr_bounds) {
+        const auto sn = cb.chrom.substr(0, cb.chrom.find(' '));
+        ofs << "@SQ\tSN:" << sn << "\tLN:" << bidir_index.get_chr_size(cb.chrom) << '\n';
+    }
+    ofs << "@PG\tID:EARRINGS\tPN:EARRINGS\tVN:" << std::string(GET_EARRINGS_VERSION) << '\n';
+
+    // The library's Record operator<< appends a trailing tab after every field;
+    // strip it (and any stray newline) so the line is spec-clean.
+    auto emit = [](std::ostringstream& oss, const auto& sam) {
+        std::ostringstream tmp;
+        tmp << sam;
+        auto s = tmp.str();
+        while (!s.empty() && (s.back() == '\t' || s.back() == '\n')) s.pop_back();
+        oss << s << '\n';
+    };
+    // RNAME / QNAME must not contain whitespace and RNAME must match an @SQ SN;
+    // chr_bounds names (and read names) can carry a description after a space.
+    auto first_token = [](std::string& s) {
+        if (auto p = s.find_first_of(" \t"); p != std::string::npos) s.resize(p);
+    };
+
+    auto rfs = open_se_reads(reads_path);
+    auto records_view = make_input_view(*rfs);
+    auto it = records_view.begin();
+
+    constexpr auto chunk_size = size_t{16};
+    const auto batch_size = chunk_size * thread_num;
+    size_t n_reads = 0, n_mapped = 0, n_unmapped = 0;
+
+    while (it != records_view.end() && (cap == 0 || n_mapped < cap)) {
+        std::vector<biovoltron::FastqRecord<>> records;
+        records.reserve(batch_size);
+        for (size_t i = 0; i < batch_size && it != records_view.end(); ++i, ++it)
+            records.emplace_back(*it);
+
+        std::vector<std::string> lines(records.size());
+        std::vector<char> mapped(records.size(), 0);
+
+        #pragma omp parallel for schedule(dynamic, chunk_size) num_threads(thread_num)
+        for (size_t i = 0; i < records.size(); ++i) {
+            auto& rec = records[i];
+            first_token(rec.name);
+            if (rec.qual.empty()) rec.qual.assign(rec.seq.size(), 'I');
+
+            const auto [fwd_aln, rev_aln] = tailor.search(rec);
+            auto fwd_sams = biovoltron::aln_to_sam_list(fwd_aln);
+            auto rev_sams = biovoltron::aln_to_sam_list(rev_aln);
+            for (auto* v : {&fwd_sams, &rev_sams})
+                for (auto& s : *v) {
+                    first_token(s.rname);
+                    // aln_to_sam_list's MD tag is only correct for the '+' strand
+                    // (the '-' branch char-reverses the string); drop it there.
+                    if (s.flag & 0x10)
+                        std::erase_if(s.optionals, [](const std::string& o) { return o.starts_with("MD:Z:"); });
+                }
+
+            std::ostringstream oss;
+            if (fwd_sams.empty() && rev_sams.empty()) {
+                oss << rec.name << "\t4\t*\t0\t0\t*\t*\t0\t0\t"
+                    << rec.seq << '\t' << rec.qual << '\n';
+            } else {
+                mapped[i] = 1;
+                for (const auto& sam : fwd_sams) emit(oss, sam);
+                for (const auto& sam : rev_sams) emit(oss, sam);
+            }
+            lines[i] = oss.str();
+        }
+
+        for (size_t i = 0; i < lines.size(); ++i) {
+            ofs << lines[i];
+            ++n_reads;
+            if (mapped[i]) ++n_mapped; else ++n_unmapped;
+        }
+    }
+
+    std::cout << "SAM written to " << sam_path << " (" << n_reads << " reads, "
+              << n_mapped << " mapped, " << n_unmapped << " unmapped";
+    if (cap != 0) std::cout << "; capped at " << cap << " mapped";
+    std::cout << ")\n";
+}
+
 template <class IndexType>
 std::pair<size_t, std::pair<std::string, bool>>
 seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
@@ -119,6 +238,9 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
 
         std::tie(head_len, tails) = tailor_pipeline(ifs, tailor, DETECT_N_READS);
     }
+
+    // Optional full per-read alignment output, reusing the loaded index / Tailor.
+    if (sam_cap) write_alignment_sam(reads_path, tailor, bidir_index, *sam_cap);
 
     std::string adapter3;
     std::pair<std::string, bool> adapter3_info;
