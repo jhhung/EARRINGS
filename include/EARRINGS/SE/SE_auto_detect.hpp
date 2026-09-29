@@ -212,10 +212,19 @@ void write_alignment_sam(const std::string& reads_path, const Tailor& tailor, co
 template <class IndexType>
 std::pair<size_t, std::pair<std::string, bool>>
 seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
+    // Hard ceiling on multi-mapping candidates, applied even for -M 0
+    // (deliberately unlimited), to avoid exhausting memory on a degenerate read.
+    // Tighter than Biovoltron's own 1,000,000-position last-resort ceiling in
+    // Tailor::raws2alignment, so that one should never trigger for EARRINGS.
+    constexpr size_t HARD_MAX_MULTI_CEILING = 100000;
+
     biovoltron::Tailor tailor{bidir_index};
     tailor.seed_len = seed_len;
     tailor.allow_seed_mismatch = !no_mismatch;
-    tailor.max_multi = min_multi == 0 ? std::numeric_limits<size_t>::max() : min_multi;
+    tailor.max_multi = std::min(
+        min_multi == 0 ? std::numeric_limits<size_t>::max() : min_multi,
+        HARD_MAX_MULTI_CEILING
+    );
     tailor.skipped_5prime_len = skipped_5prime_len;
     tailor.min_head_pos = tags5_total_len;
 

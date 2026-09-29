@@ -113,8 +113,8 @@ Single-End mode parameters
     It's recommended to set this to 18 for very short reads like **miRNA**, otherwise, it is recommended to set to 50.
     - -e [ --no_mismatch ]</br>
     By default, EARRINGS can tolerate 1 error base at most if be set as true, this flag can disable this mismatch toleration mechenism.
-    - -M [ --max_align ] arg (=0)</br>
-    Maximum number of candidates used in seed finding stage, 0 means unlimited.
+    - -M [ --max_align ] arg (=10)</br>
+    Maximum number of candidates used in seed finding stage. Reads exceeding this are treated as too repetitive and dropped. Pass 0 to remove this cap (still bounded by an internal safety ceiling).
   - Assemble adapter
     - -f [ --prune_factor ] arg (=0.03)</br>
     Prune factor used when assembling adapters using the de-brujin graph. Kmer frequency lower than this value will be skipped.
@@ -221,8 +221,8 @@ Special Small-RNA Single-End mode parameters
     It's recommended to set this from 18 to 25 for very short reads like **miRNA**.
     - -e [ --no_mismatch ]</br>
     By default, EARRINGS can tolerate 1 error base at most if be set as true, this flag can disable this mismatch toleration mechenism.
-    - -M [ --max_align ] arg (=0)</br>
-    Maximum number of candidates used in seed finding stage, 0 means unlimited.
+    - -M [ --max_align ] arg (=10)</br>
+    Maximum number of candidates used in seed finding stage. Reads exceeding this are treated as too repetitive and dropped. Pass 0 to remove this cap (still bounded by an internal safety ceiling).
   - Trimming
     - -m [ --min_length ] arg (=0)</br>
     Skip the read if the length of the read is less than ***--min_length*** after trimming.

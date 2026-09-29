@@ -466,8 +466,10 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             "The number of threads used to run the program.")
         ("max_align,M",
          boost::program_options::
-            value<size_t>()->default_value(0),
-            "Maximum number of candidates used in seed finding stage, 0 means unlimited.")
+            value<size_t>()->default_value(10),
+            "Maximum number of candidates used in seed finding stage. Reads "
+            "exceeding this are treated as too repetitive and dropped. Pass 0 "
+            "to remove this cap (still bounded by an internal safety ceiling).")
         ("no_mismatch,e",
          boost::program_options::
             bool_switch(&no_mismatch),
@@ -872,8 +874,10 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
             "The number of threads used to run the program.")
         ("max_align,M",
          boost::program_options::
-            value<size_t>()->default_value(0),
-            "Maximum number of candidates used in seed finding stage, 0 means unlimited.")
+            value<size_t>()->default_value(10),
+            "Maximum number of candidates used in seed finding stage. Reads "
+            "exceeding this are treated as too repetitive and dropped. Pass 0 "
+            "to remove this cap (still bounded by an internal safety ceiling).")
         ("no_mismatch,e",
          boost::program_options::
             bool_switch(&no_mismatch),
