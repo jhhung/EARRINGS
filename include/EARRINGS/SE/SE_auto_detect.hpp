@@ -226,6 +226,7 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
         HARD_MAX_MULTI_CEILING
     );
     tailor.skipped_5prime_len = skipped_5prime_len;
+    tailor.fix_ext_len = fix_ext_len;
     tailor.min_head_pos = tags5_total_len;
 
     size_t head_len;

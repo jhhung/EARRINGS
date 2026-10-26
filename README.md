@@ -123,6 +123,8 @@ Single-End mode parameters
     Under sensitive mode, minimum number of kmers (***--prune_factor***) would not be restricted.
     - -A [ --max_5adapter_len ] arg (=7)</br>
     Maximum possible length of the 5' end adapter.
+    - --fix_ext_len arg (=0)</br>
+    Tolerate a mismatch inside the matched region. After a repaired mismatch, keep the match if it runs at least this many more bases, even when it then stops before the read end (0: off, the match must reach the read end). A smaller value rescues more reads whose error is near the end of the match, but also accepts more chance matches, mainly against large genomes. A larger value is stricter, but cannot rescue errors within this many bases of the end. Intended for inserts whose adapter is already removed; on reads that still carry an adapter it can extend a match a few bases into the adapter by chance. A suitable value depends on the read length, the reference size and the error rate, so check it on your own data, e.g. by aligning shuffled copies of the reads as a negative control. When enabled, consider requiring a longer minimum match on large references.
     - -k [ --init_kmer_size ] arg (=10)</br>
     The initial size of kmer.
     - -s [ --kmer_step ] arg (=5)</br>

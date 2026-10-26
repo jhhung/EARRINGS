@@ -494,6 +494,20 @@ Skewer with adapter parameters passed by EARRINGS automatically.
          boost::program_options::
             value<size_t>()->default_value(7),
             "Maximum possible length of the 5' end adapter.")
+        ("fix_ext_len",
+         boost::program_options::
+            value<size_t>()->default_value(0),
+            "Tolerate a mismatch inside the matched region. After a repaired mismatch, keep the "
+            "match if it runs at least this many more bases, even when it then stops before the "
+            "read end. 0 (default): off, the match must reach the read end. A smaller value "
+            "rescues more reads whose error is near the end of the match, but also accepts more "
+            "chance matches (mainly against large genomes). A larger value is stricter, but cannot "
+            "rescue errors within this many bases of the end. Intended for inserts whose adapter "
+            "is already removed; on reads that still carry an adapter it can extend a match a few "
+            "bases into the adapter by chance. A suitable value depends on the read length, the reference size "
+            "and the error rate, so check it on your own data, e.g. by aligning shuffled copies of "
+            "the reads as a negative control. When enabled, consider requiring a longer minimum "
+            "match on large references.")
         ("init_kmer_size,k",
          boost::program_options::
             value<size_t>()->default_value(10),
@@ -580,6 +594,10 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             skipped_5prime_len = vm["max_5adapter_len"].as<size_t>();
         }
 
+        if (vm.count("fix_ext_len")) {
+            fix_ext_len = vm["fix_ext_len"].as<size_t>();
+        }
+
         if (vm.count("init_kmer_size")) {
             init_kmer_size = vm["init_kmer_size"].as<size_t>();
         }
@@ -640,7 +658,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         std::cout << "# of threads: " << thread_num << std::endl;
         std::cout << "Is fastq: " << is_fastq << ", Is gz input: " << is_gz_input << ", Is bam: " << is_bam << std::endl;
         std::cout << "Seed length: " << seed_len << ", Max 5' end length before insert: " << skipped_5prime_len << std::endl;
-        std::cout << "Max alignment: " << min_multi << ", No mismatch: " << no_mismatch << std::endl;
+        std::cout << "Max alignment: " << min_multi << ", No mismatch: " << no_mismatch << ", Fix ext len: " << fix_ext_len << std::endl;
         std::cout << "Prune factor: " << prune_factor << ", Sensitive mode: " << is_sensitive << std::endl;
         std::cout << "Min length: " << min_length  << std::endl;
         std::cout << "Default adapter: " << DEFAULT_ADAPTER1 << std::endl;

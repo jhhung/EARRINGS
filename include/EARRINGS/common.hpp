@@ -70,6 +70,7 @@ size_t min_multi(0);
 float prune_factor(0.1);
 bool no_mismatch(false);
 size_t skipped_5prime_len(7);
+size_t fix_ext_len(0);
 size_t init_kmer_size(10);
 size_t kmer_step(5);
 // Set (bare --sam) means write <output>.sam; the value is the mapped-read
