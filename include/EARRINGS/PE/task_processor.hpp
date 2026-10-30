@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <filesystem>
+#include <EARRINGS/common.hpp>
 #include <EARRINGS/PE/task.hpp>
 #include <EARRINGS/PE/buffer_manager.hpp>
 #include <EARRINGS/PE/rw_count.hpp>
@@ -119,9 +120,9 @@ namespace EARRINGS {
         }
 
         // create tmp dir
-        _tmp_path = fs::temp_directory_path();
+        _tmp_path = scratch_dir();
         _tmp_dir = std::vector < fs::path >
-                   {fs::path(_tmp_path / fs::path("tmp1")), fs::path(_tmp_path / fs::path("tmp2"))};
+                   {fs::path(_tmp_path / fs::path("pe1")), fs::path(_tmp_path / fs::path("pe2"))};
         fs::create_directories(_tmp_dir[0]);
         fs::create_directories(_tmp_dir[1]);
 

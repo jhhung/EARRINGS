@@ -118,12 +118,7 @@ inline std::unique_ptr<std::istream> open_se_reads(const std::string& reads_path
 // dropped on '-' strand hits (the library reverses it incorrectly).
 template <class Tailor, class Index>
 void write_alignment_sam(const std::string& reads_path, const Tailor& tailor, const Index& bidir_index, std::size_t cap) {
-    // ofs_name[0] carries a .fastq/.fasta suffix (appended in init_single); drop it.
-    std::string base = ofs_name[0];
-    for (std::string_view ext : {".fastq", ".fasta"})
-        if (base.size() > ext.size() && std::string_view(base).substr(base.size() - ext.size()) == ext)
-            base.resize(base.size() - ext.size());
-    const auto sam_path = base + ".sam";
+    const auto sam_path = output_prefix() + ".sam";
     std::ofstream ofs(sam_path);
     if (!ofs) throw std::runtime_error("Cannot open " + sam_path + " for writing");
 

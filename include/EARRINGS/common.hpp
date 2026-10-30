@@ -1,5 +1,7 @@
 #pragma once
 #include <cstdint>
+#include <cstdlib>
+#include <stdexcept>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -10,7 +12,7 @@
 #include <EARRINGS/version.h>
 
 // first whitespace-delimited token of a read header, used as the join key
-// between tags.tsv and the trimmed reads / original input.
+// between <prefix>.tags.tsv and the trimmed reads / original input.
 inline std::string read_qname(const std::string& name) {
     return name.substr(0, name.find(' '));
 }
@@ -101,9 +103,82 @@ size_t min_length(0);
 std::vector<std::string> ifs_name(2);
 std::vector<std::string> ofs_name(2);
 
+// -o prefix without the .fastq/.fasta suffix init_single appends to ofs_name[0];
+// side outputs are named <prefix>.<kind> (e.g. .sam, .tags.tsv).
+inline std::string output_prefix() {
+    std::string base = ofs_name[0];
+    for (std::string_view ext : {".fastq", ".fasta"})
+        if (base.size() > ext.size() && std::string_view(base).substr(base.size() - ext.size()) == ext)
+            base.resize(base.size() - ext.size());
+    return base;
+}
+
+// Default -o for the single-end modes: the input's file name without its
+// directory and read-file extensions (e.g. data/S15_1.fastq.gz -> S15_1).
+inline std::string default_output_prefix(const std::string& input) {
+    auto name = std::filesystem::path(input).filename().string();
+    auto strip = [&](std::string_view ext) {
+        if (name.size() > ext.size() && std::string_view(name).substr(name.size() - ext.size()) == ext) {
+            name.resize(name.size() - ext.size());
+            return true;
+        }
+        return false;
+    };
+    strip(".gz");
+    for (std::string_view ext : {".fastq", ".fq", ".fasta", ".fa", ".ubam", ".bam"})
+        if (strip(ext)) break;
+    return name;
+}
+
+// Default -o for paired mode: the R1 name as above, minus a trailing mate
+// marker, plus "_trimmed" so <prefix>_1.fastq cannot be the input itself
+// (data/S15_R1.fastq.gz -> S15_trimmed).
+inline std::string default_paired_output_prefix(const std::string& input1) {
+    auto name = default_output_prefix(input1);
+    for (std::string_view mate : {"_R1_001", "_R1", ".R1", "_1", ".1"})
+        if (name.size() > mate.size() && std::string_view(name).substr(name.size() - mate.size()) == mate) {
+            name.resize(name.size() - mate.size());
+            break;
+        }
+    return name + "_trimmed";
+}
+
+// Private temporary directory for this run (under $TMPDIR, else /tmp),
+// created on first use and removed at normal exit, so concurrent runs never
+// share temporary files.
+inline const std::filesystem::path& scratch_dir() {
+    // Never destroyed: a static path would be destroyed before the atexit
+    // handler (registered during its own initialization) runs.
+    static const auto* dir = [] {
+        auto tmpl = (std::filesystem::temp_directory_path() / "EARRINGS.XXXXXX").string();
+        if (!mkdtemp(tmpl.data()))
+            throw std::runtime_error("Cannot create a temporary directory from " + tmpl);
+        std::atexit([] {
+            std::error_code ec;
+            std::filesystem::remove_all(scratch_dir(), ec);
+        });
+        return new std::filesystem::path(tmpl);
+    }();
+    return *dir;
+}
+
 // skewer's trimmed reads, as named from the -o it is given (ofs_name[0]).
 inline std::string trimmed_reads_path(bool fastq) {
     return ofs_name[0] + (fastq ? "-trimmed.fastq" : "-trimmed.fasta");
+}
+
+// Exit before any work if an output is an input file (also via ./, symlinks or
+// hard links): opening it for writing would truncate the input first.
+inline void ensure_outputs_are_not_inputs(const std::vector<std::string>& outputs,
+                                          const std::vector<std::string>& inputs) {
+    for (const auto& out : outputs)
+        for (const auto& in : inputs) {
+            std::error_code ec;
+            if (std::filesystem::equivalent(out, in, ec)) {
+                std::cerr << "Error: output " << out << " is the input file " << in << "; choose another -o\n";
+                std::exit(1);
+            }
+        }
 }
 
 // for smallRNA

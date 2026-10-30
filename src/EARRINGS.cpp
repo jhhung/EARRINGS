@@ -65,7 +65,7 @@ int main(int argc, const char* argv[]) {
         init_single(argc, argv);
 
         if (is_bam) {
-            std::string tmp_name("/tmp/EARRINGS_bam_reads.tmp");
+            const auto tmp_name = (scratch_dir() / "bam_reads.tmp").string();
 
             std::cerr << "Processing BAM file...\n";
             auto num_records = Process_uBAMs::extract_reads_from_uBAMs(
@@ -142,8 +142,8 @@ int main(int argc, const char* argv[]) {
         init_paired(argc, argv);
 
         if (is_bam) {
-            std::string tmp_name1("/tmp/EARRINGS_bam_reads1.tmp");
-            std::string tmp_name2("/tmp/EARRINGS_bam_reads2.tmp");
+            const auto tmp_name1 = (scratch_dir() / "bam_reads1.tmp").string();
+            const auto tmp_name2 = (scratch_dir() / "bam_reads2.tmp").string();
             // extract reads are fasta by default
             auto num_records = Process_uBAMs::extract_reads_from_uBAMs(
                 ifs_name[0],
@@ -169,7 +169,7 @@ int main(int argc, const char* argv[]) {
         init_smallrna(argc, argv);
 
         if (is_bam) {
-            std::string tmp_name("/tmp/EARRINGS_bam_reads.tmp");
+            const auto tmp_name = (scratch_dir() / "bam_reads.tmp").string();
 
             std::cerr << "Processing BAM file...\n";
             auto num_records = Process_uBAMs::extract_reads_from_uBAMs(
@@ -254,7 +254,7 @@ int main(int argc, const char* argv[]) {
         init_skewer(argc, argv);
 
         if (is_bam) {
-            std::string tmp_name("/tmp/EARRINGS_bam_reads.tmp");
+            const auto tmp_name = (scratch_dir() / "bam_reads.tmp").string();
 
             std::cerr << "Processing BAM file...\n";
             auto num_records = Process_uBAMs::extract_reads_from_uBAMs(
@@ -454,8 +454,8 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             "otherwise, it is recommended to set to 50.")
         ("output,o",
          boost::program_options::
-            value<std::string>(&ofs_name[0])->default_value("trimmed_se"),
-            "The file prefix of Single-End FastQ output.")
+            value<std::string>(&ofs_name[0]),
+            "The file prefix of Single-End FastQ output. (default: the input file name without its directory and extensions)")
         ("min_length,m",
          boost::program_options::
             value<size_t>()->default_value(0),
@@ -642,6 +642,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             exit(1);
         }
 
+        if (ofs_name[0].empty()) ofs_name[0] = default_output_prefix(ifs_name[0]);
         if (is_bam ||
             ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() ||
             ifs_name[0].find( fasta_ext ) == ifs_name[0].length() - fasta_ext.length() ) {
@@ -649,6 +650,13 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             is_fastq = false;
         } else {
             ofs_name[0] += ".fastq";
+        }
+
+        {
+            std::vector<std::string> outputs{trimmed_reads_path(is_fastq), ofs_name[0] + "-trimmed.log"};
+            if (sam_cap) outputs.push_back(output_prefix() + ".sam");
+            if (!tag_structure5.empty() || !tag_structure3.empty()) outputs.push_back(output_prefix() + ".tags.tsv");
+            ensure_outputs_are_not_inputs(outputs, {ifs_name[0]});
         }
 
         std::cout << std::boolalpha;
@@ -705,8 +713,8 @@ adapter removed FastQ/FastA format output files (dual files).
             "Display help message and exit.")
         ("output,o",
          boost::program_options::
-            value<std::string>(&ofs_name[0])->default_value("trimmed_pe"),
-            "The Paired-End FastQ output file prefix.")
+            value<std::string>(&ofs_name[0]),
+            "The Paired-End FastQ output file prefix. (default: the input file 1 name without its directory, extensions and mate marker, plus \"_trimmed\")")
         ("adapter1,a",
          boost::program_options::
             value<std::string>(&DEFAULT_ADAPTER1)->default_value(DEFAULT_ADAPTER1),
@@ -805,6 +813,7 @@ adapter removed FastQ/FastA format output files (dual files).
             exit(1);
         }
 
+        if (ofs_name[0].empty()) ofs_name[0] = default_paired_output_prefix(ifs_name[0]);
         ofs_name[1] = ofs_name[0];
         if (is_bam ||
             ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() ||
@@ -816,6 +825,8 @@ adapter removed FastQ/FastA format output files (dual files).
             ofs_name[0] += "_1.fastq";
             ofs_name[1] += "_2.fastq";
         }
+
+        ensure_outputs_are_not_inputs({ofs_name[0], ofs_name[1]}, {ifs_name[0], ifs_name[1]});
 
         std::cout << std::boolalpha;
         std::cout << "Index prefix: " << index_prefix << std::endl;
@@ -880,8 +891,8 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
             "maximum seed length for the special small RNA mode. (default: 25)")
         ("output,o",
          boost::program_options::
-            value<std::string>(&ofs_name[0])->default_value("trimmed_sr"),
-            "The file prefix of Single-End FastQ output.")
+            value<std::string>(&ofs_name[0]),
+            "The file prefix of Single-End FastQ output. (default: the input file name without its directory and extensions)")
         ("min_length,m",
          boost::program_options::
             value<size_t>()->default_value(0),
@@ -981,6 +992,7 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
             exit(1);
         }
 
+        if (ofs_name[0].empty()) ofs_name[0] = default_output_prefix(ifs_name[0]);
         if (is_bam ||
             ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() ||
             ifs_name[0].find( fasta_ext ) == ifs_name[0].length() - fasta_ext.length() ) {
@@ -988,6 +1000,16 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
             is_fastq = false;
         } else {
             ofs_name[0] += ".fastq";
+        }
+
+        {
+            std::vector<std::string> outputs{trimmed_reads_path(is_fastq), ofs_name[0] + "-trimmed.log"};
+            for (auto len = min_seed_len; len <= max_seed_len; ++len) {
+                const auto out_len = ofs_name[0] + "_len" + std::to_string(len);
+                outputs.push_back(out_len + "-trimmed.fastq");
+                outputs.push_back(out_len + "-trimmed.log");
+            }
+            ensure_outputs_are_not_inputs(outputs, {ifs_name[0]});
         }
 
         std::cout << std::boolalpha;
@@ -1037,8 +1059,8 @@ adapter sequence via Skewer (default as sensitive mode).
             "Display help message and exit.")
         ("output,o",
          boost::program_options::
-            value<std::string>(&ofs_name[0])->default_value("trimmed_sk"),
-            "The file prefix of Single-End FastQ output.")
+            value<std::string>(&ofs_name[0]),
+            "The file prefix of Single-End FastQ output. (default: the input file name without its directory and extensions)")
         ("min_length,m",
          boost::program_options::
             value<size_t>()->default_value(0),
@@ -1097,6 +1119,7 @@ adapter sequence via Skewer (default as sensitive mode).
             exit(1);
         }
 
+        if (ofs_name[0].empty()) ofs_name[0] = default_output_prefix(ifs_name[0]);
         if (is_bam ||
             ifs_name[0].find(    fa_ext ) == ifs_name[0].length() -    fa_ext.length() ||
             ifs_name[0].find( fasta_ext ) == ifs_name[0].length() - fasta_ext.length() ) {
@@ -1105,6 +1128,8 @@ adapter sequence via Skewer (default as sensitive mode).
         } else {
             ofs_name[0] += ".fastq";
         }
+
+        ensure_outputs_are_not_inputs({trimmed_reads_path(is_fastq), ofs_name[0] + "-trimmed.log"}, {ifs_name[0]});
 
         std::cout << std::boolalpha;
         std::cout << "Input file name: " << ifs_name[0] << std::endl;

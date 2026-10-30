@@ -120,8 +120,9 @@ void trim_tags3(auto& tags3, auto& names3) {
 }
 
 void export_tags_tsv(const auto& names5, const auto& tags5, const auto& names3, const auto& tags3) {
-    std::ofstream ofs("tags.tsv");
-    if (!ofs) return;
+    const auto tsv_path = output_prefix() + ".tags.tsv";
+    std::ofstream ofs(tsv_path);
+    if (!ofs) throw std::runtime_error("Cannot open " + tsv_path + " for writing");
 
     auto write_row = [&](const std::string& name, auto&& tag_view) {
         ofs << name;

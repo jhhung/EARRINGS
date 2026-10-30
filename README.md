@@ -105,8 +105,8 @@ Single-End mode parameters
     - -t [ --thread ] arg (=1)</br>
     The number of threads used to run the program.
   - Input / Output
-    - -o [ --output ] arg (=trimmed_se)</br>
-    The file prefix of Single-End FastQ output.
+    - -o [ --output ] arg</br>
+    The file prefix of Single-End FastQ output. Defaults to the input file name without its directory and extensions (e.g. ***data/S15_1.fastq.gz*** gives ***S15_1***), so the trimmed reads go to ***S15_1.fastq-trimmed.fastq*** and its log to ***S15_1.fastq-trimmed.log*** in the working directory.
   - Extract seeds / Alignment
     - -d [ --seed_len ] arg (=50)</br>
     The first ***--seed_len*** bases are seen as seed and allows 1 mismatch at most, or do not allow any mismatch if ***--no_mismatch*** is set. The sequence follows first mismatch out of the seed portion will be reported as a tail.</br>
@@ -140,6 +140,8 @@ Single-End mode parameters
     The structure between the 5' adapter and the insert. Specify each element as name:length, separated by commas, in the actual order. Each name must be unique. The name "UMI" specifically represents the UMI. Example: "UMI:6,cell_bc:8"
     - -3 [ --3_tag_structure ] arg</br>
     The structure between the insert and the 3' adapter. Specify each element as name:length, separated by commas, in the actual order. Each name must be unique. The name "UMI" specifically represents the UMI. Example: "UMI:6,cell_bc:8"
+
+    When either structure is given, the extracted tags are written to ***&lt;output&gt;.tags.tsv*** (one row per read, one column per tag).
   - Alignment output
     - --sam arg (implicit 0)</br>
     Also write ***&lt;output&gt;.sam*** with each read's Tailor alignment against the reference (insert as M, 3' tail as a soft-clip; one record per locus; unmapped reads included; records in input order). This reruns the search pass separately from adapter detection, so it adds real time on large files. Bare ***--sam*** covers the whole input file; pass a number (e.g. ***--sam 50000***) to cap it to that many mapped reads instead.
@@ -166,8 +168,8 @@ Paired-end mode parameters
     - -t [ --thread ] arg (=1)</br>
     The number of threads used to run the program.
   - Input / Output
-    - -o [ --output ] arg (=trimmed_pe)</br>
-    The Paired-End FastQ output file prefix.
+    - -o [ --output ] arg</br>
+    The Paired-End FastQ output file prefix; the trimmed reads go to ***&lt;output&gt;_1.fastq*** and ***&lt;output&gt;_2.fastq***. Defaults to the input file 1 name without its directory, extensions and mate marker (***_1***, ***_R1***, ***_R1_001***, ...), plus ***_trimmed*** (e.g. ***data/S15_R1.fastq.gz*** gives ***S15_trimmed_1.fastq*** and ***S15_trimmed_2.fastq*** in the working directory).
   - Assemble adapter
     - -f [ --prune_factor ] arg (=0.03)</br>
     Prune factor used when assembling adapters using the de Bruijn graph. Kmer frequency lower than the prune factor will be skipped.
@@ -212,8 +214,8 @@ Special Small-RNA Single-End mode parameters
     - -t [ --thread ] arg (=1)</br>
     The number of threads used to run the program.
   - Input / Output
-    - -o [ --output ] arg (=trimmed_se)</br>
-    The file prefix of Single-End FastQ output.
+    - -o [ --output ] arg</br>
+    The file prefix of Single-End FastQ output. Defaults to the input file name without its directory and extensions (e.g. ***data/S15_1.fastq.gz*** gives ***S15_1***), so the trimmed reads go to ***S15_1.fastq-trimmed.fastq*** and its log to ***S15_1.fastq-trimmed.log*** in the working directory.
   - Extract seeds / Alignment
     - -s [ --min_seed_len ] arg (=21)</br>
     Use the same parameters as ***--seed_len*** in Single-End mode, but set the minimum seed length for the range to try different seed lengths to detect adapters for small RNA reads.</br>
@@ -256,8 +258,8 @@ Special Skewer Single-End mode parameters
     - -t [ --thread ] arg (=1)</br>
     The number of threads used to run the program.
   - Input / Output
-    - -o [ --output ] arg (=trimmed_se)</br>
-    The file prefix of Single-End FastQ output.
+    - -o [ --output ] arg</br>
+    The file prefix of Single-End FastQ output. Defaults to the input file name without its directory and extensions (e.g. ***data/S15_1.fastq.gz*** gives ***S15_1***), so the trimmed reads go to ***S15_1.fastq-trimmed.fastq*** and its log to ***S15_1.fastq-trimmed.log*** in the working directory.
   - Trimming
     - -m [ --min_length ] arg (=0)</br>
     Skip the read if the length of the read is less than ***--min_length*** after trimming.
