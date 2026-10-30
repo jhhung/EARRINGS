@@ -459,9 +459,11 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         ("seed_len,d",
          boost::program_options::
             value<size_t>()->default_value(50),
-            "The first --seed_len bases are seen as seed and allows 1 mismatch at most, "
-            "or do not allow any mismatch if --no_mismatch is set. The sequence follows "
-            "first mismatch out of the seed portion will be reported as a tail.\n"
+            "A read aligns only if it matches the reference over more than --seed_len "
+            "contiguous bases, counting the part of the first --max_5adapter_len bases "
+            "that still matches. This seed allows 1 mismatch at most, or none if "
+            "--no_mismatch is set. The sequence after the first mismatch past the seed "
+            "is reported as a tail.\n"
             "It's recommended to set this to 18 for very short reads like miRNA, "
             "otherwise, it is recommended to set to 50.")
         ("output,o",

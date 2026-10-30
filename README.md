@@ -111,7 +111,7 @@ Single-End mode parameters
     The file prefix of Single-End FastQ output. Defaults to the input file name without its directory and extensions (e.g. ***data/S15_1.fastq.gz*** gives ***S15_1***), so the trimmed reads go to ***S15_1.fastq-trimmed.fastq*** and its log to ***S15_1.fastq-trimmed.log*** in the working directory.
   - Extract seeds / Alignment
     - -d [ --seed_len ] arg (=50)</br>
-    The first ***--seed_len*** bases are seen as seed and allows 1 mismatch at most, or do not allow any mismatch if ***--no_mismatch*** is set. The sequence follows first mismatch out of the seed portion will be reported as a tail.</br>
+    A read aligns only if it matches the reference over more than ***--seed_len*** contiguous bases, counting the part of the first ***--max_5adapter_len*** bases that still matches (so a short insert with no 5' adapter is not lost to ***-A***). This seed allows 1 mismatch at most, or none if ***--no_mismatch*** is set. The sequence after the first mismatch past the seed is reported as a tail.</br>
     It's recommended to set this to 18 for very short reads like **miRNA**, otherwise, it is recommended to set to 50.
     - -e [ --no_mismatch ]</br>
     By default, EARRINGS can tolerate 1 error base at most if be set as true, this flag can disable this mismatch toleration mechenism.
