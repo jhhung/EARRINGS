@@ -421,7 +421,10 @@ void trim_heads_to_stream(std::string& reads_path, size_t head_len, std::vector<
             std::ostringstream oss;
             oss << rec << '\n';
             const auto s = oss.str();
-            fwrite(s.c_str(), 1, s.size(), wfp);
+            // Fails (EPIPE) once skewer has stopped reading, e.g. when it
+            // could not open its output.
+            if (fwrite(s.c_str(), 1, s.size(), wfp) != s.size())
+                throw std::runtime_error("Cannot pass reads to skewer");
         }
     };
     if (is_fastq) {

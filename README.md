@@ -58,6 +58,8 @@ Build mode generates an index for the source reference sequence (e.g., the entir
 
 Single mode and paired mode are used for single-end reads and paired-end reads respectively. Both of these two modes can auto-detect file types. ([.fa](https://en.wikipedia.org/wiki/FASTA_format)/[.fq](https://en.wikipedia.org/wiki/FASTQ_format), and their [.gz](https://en.wikipedia.org/wiki/FASTQ_format#General_compressors) or [.bam](https://en.wikipedia.org/wiki/Binary_Alignment_Map)/[.ubam](http://129.130.90.13/ion-docs/GUID-C202F9D0-386F-412D-97F9-E4DB77F1BB6E.html))
 
+Outputs are written next to the ***-o*** prefix, whose directory must already exist. BAM input and paired mode also write temporary files to a private directory under ***$TMPDIR*** (***/tmp*** if unset), removed when the run finishes; set ***TMPDIR*** to a disk with enough space for large inputs, e.g. ***TMPDIR=/data/tmp ./EARRINGS paired ...***.
+
 ### **Build**
 
 Before conducting single-end adapter trimming, **one has to prebuild the index** once for a specific reference which is the source of the target reads.

@@ -167,6 +167,16 @@ inline std::string trimmed_reads_path(bool fastq) {
     return ofs_name[0] + (fastq ? "-trimmed.fastq" : "-trimmed.fasta");
 }
 
+// Exit before any work if the directory of the -o prefix does not exist;
+// otherwise skewer only finds out after adapter detection.
+inline void ensure_output_dir_exists(const std::string& output) {
+    const auto dir = std::filesystem::path(output).parent_path();
+    if (!dir.empty() && !std::filesystem::is_directory(dir)) {
+        std::cerr << "Error: output directory " << dir.string() << " does not exist\n";
+        std::exit(1);
+    }
+}
+
 // Exit before any work if an output is an input file (also via ./, symlinks or
 // hard links): opening it for writing would truncate the input first.
 inline void ensure_outputs_are_not_inputs(const std::vector<std::string>& outputs,

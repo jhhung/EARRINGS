@@ -5,6 +5,7 @@
 #include <vector>
 #include <filesystem>
 #include <thread>
+#include <csignal>
 #include <unistd.h>
 #include <boost/program_options.hpp>
 #include <range/v3/all.hpp>
@@ -22,6 +23,12 @@ void init_paired(int argc, const char* argv[]);
 void init_smallrna(int argc, const char* argv[]);
 void init_skewer(int argc, const char* argv[]);
 void init_build(int argc, const char* argv[]);
+
+// skewer has already printed why it failed (e.g. an output it cannot open).
+int skewer_failed() {
+    std::cerr << "Error: skewer failed; no trimmed output was written\n";
+    return EXIT_FAILURE;
+}
 
 int main(int argc, const char* argv[]) {
     std::chrono::time_point<std::chrono::steady_clock> start, end;
@@ -99,6 +106,10 @@ int main(int argc, const char* argv[]) {
         if (head_len > 0) {
             skewer_args.insert(skewer_args.begin() + 1, "");  // "" triggers bStdin=true in skewer GetOpt
 
+            // A write to the pipe after skewer has stopped reading must fail with
+            // EPIPE (reported below) instead of killing the process.
+            std::signal(SIGPIPE, SIG_IGN);
+
             int pipefd[2];
             if (pipe(pipefd) != 0) {
                 throw std::runtime_error("Failed to create pipe for head trimming");
@@ -121,10 +132,11 @@ int main(int argc, const char* argv[]) {
                 | ::ranges::to<std::vector<const char*>>();
 
             FILE* rfp = fdopen(pipefd[0], "r");
-            skewer::mainStream(skewer_argv.size(), skewer_argv.data(), rfp);
+            const auto skewer_ret = skewer::mainStream(skewer_argv.size(), skewer_argv.data(), rfp);
             fclose(rfp);
 
             writer.join();
+            if (skewer_ret != 0) return skewer_failed();
             if (writer_exc) std::rethrow_exception(writer_exc);
         } else {
             skewer_args.insert(skewer_args.begin() + 1, ifs_name[0]);
@@ -133,7 +145,7 @@ int main(int argc, const char* argv[]) {
                 | ::ranges::views::transform(&std::string::c_str)
                 | ::ranges::to<std::vector<const char*>>();
 
-            skewer::main(skewer_argv.size(), skewer_argv.data());
+            if (skewer::main(skewer_argv.size(), skewer_argv.data()) != 0) return skewer_failed();
         }
 
         if (!tag_structure3.empty()) trim_tags3(tags3, names3);
@@ -215,7 +227,7 @@ int main(int argc, const char* argv[]) {
                 | ::ranges::views::transform(&std::string::c_str)
                 | ::ranges::to<std::vector<const char*>>();
 
-            skewer::main(skewer_argv.size(), skewer_argv.data());
+            if (skewer::main(skewer_argv.size(), skewer_argv.data()) != 0) return skewer_failed();
             if (!freopen("/dev/tty", "a", stdout)) {
                 perror("Failed to redirect stdout to /dev/null");
                 return EXIT_FAILURE;
@@ -283,7 +295,7 @@ int main(int argc, const char* argv[]) {
             | ::ranges::views::transform(&std::string::c_str)
             | ::ranges::to<std::vector<const char*>>();
 
-        skewer::main(skewer_argv.size(), skewer_argv.data());
+        if (skewer::main(skewer_argv.size(), skewer_argv.data()) != 0) return skewer_failed();
     } else if (std::string(argv[1]) == "build") {
         init_build(argc, argv);
     } else {
@@ -652,6 +664,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             ofs_name[0] += ".fastq";
         }
 
+        ensure_output_dir_exists(ofs_name[0]);
         {
             std::vector<std::string> outputs{trimmed_reads_path(is_fastq), ofs_name[0] + "-trimmed.log"};
             if (sam_cap) outputs.push_back(output_prefix() + ".sam");
@@ -662,7 +675,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         std::cout << std::boolalpha;
         std::cout << "Index prefix: " << index_prefix << std::endl;
         std::cout << "Input file name: " << ifs_name[0] << std::endl;
-        std::cout << "Output file name: " << ofs_name[0] << std::endl;
+        std::cout << "Output file name: " << trimmed_reads_path(is_fastq) << std::endl;
         std::cout << "# of threads: " << thread_num << std::endl;
         std::cout << "Is fastq: " << is_fastq << ", Is gz input: " << is_gz_input << ", Is bam: " << is_bam << std::endl;
         std::cout << "Seed length: " << seed_len << ", Max 5' end length before insert: " << skipped_5prime_len << std::endl;
@@ -826,6 +839,7 @@ adapter removed FastQ/FastA format output files (dual files).
             ofs_name[1] += "_2.fastq";
         }
 
+        ensure_output_dir_exists(ofs_name[0]);
         ensure_outputs_are_not_inputs({ofs_name[0], ofs_name[1]}, {ifs_name[0], ifs_name[1]});
 
         std::cout << std::boolalpha;
@@ -1002,6 +1016,7 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
             ofs_name[0] += ".fastq";
         }
 
+        ensure_output_dir_exists(ofs_name[0]);
         {
             std::vector<std::string> outputs{trimmed_reads_path(is_fastq), ofs_name[0] + "-trimmed.log"};
             for (auto len = min_seed_len; len <= max_seed_len; ++len) {
@@ -1015,7 +1030,7 @@ and using Skewer to trim the adapter from the reads (default as sensitive mode).
         std::cout << std::boolalpha;
         std::cout << "Index prefix: " << index_prefix << std::endl;
         std::cout << "Input file name: " << ifs_name[0] << std::endl;
-        std::cout << "Output file name: " << ofs_name[0] << std::endl;
+        std::cout << "Output file name: " << trimmed_reads_path(is_fastq) << std::endl;
         std::cout << "# of threads: " << thread_num << std::endl;
         std::cout << "Is fastq: " << is_fastq << ", Is gz input: " << is_gz_input << ", Is bam: " << is_bam << std::endl;
         std::cout << "Seed lengths: " << min_seed_len << "~" << max_seed_len << ", Max alignment: " << min_multi << ", No mismatch: " << no_mismatch << std::endl;
@@ -1129,11 +1144,12 @@ adapter sequence via Skewer (default as sensitive mode).
             ofs_name[0] += ".fastq";
         }
 
+        ensure_output_dir_exists(ofs_name[0]);
         ensure_outputs_are_not_inputs({trimmed_reads_path(is_fastq), ofs_name[0] + "-trimmed.log"}, {ifs_name[0]});
 
         std::cout << std::boolalpha;
         std::cout << "Input file name: " << ifs_name[0] << std::endl;
-        std::cout << "Output file name: " << ofs_name[0] << std::endl;
+        std::cout << "Output file name: " << trimmed_reads_path(is_fastq) << std::endl;
         std::cout << "# of threads: " << thread_num << std::endl;
         std::cout << "Is fastq: " << is_fastq << ", Is gz input: " << is_gz_input << ", Is bam: " << is_bam << std::endl;
         std::cout << "Sensitive mode: " << is_sensitive << std::endl;
