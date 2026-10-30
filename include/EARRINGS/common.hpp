@@ -101,6 +101,11 @@ size_t min_length(0);
 std::vector<std::string> ifs_name(2);
 std::vector<std::string> ofs_name(2);
 
+// skewer's trimmed reads, as named from the -o it is given (ofs_name[0]).
+inline std::string trimmed_reads_path(bool fastq) {
+    return ofs_name[0] + (fastq ? "-trimmed.fastq" : "-trimmed.fasta");
+}
+
 // for smallRNA
 size_t min_seed_len(21);
 size_t max_seed_len(25);

@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include <fstream>
 #include <exception>
+#include <stdexcept>
 #include <charconv>
 #include <boost/range/join.hpp>
 #include <boost/algorithm/string/join.hpp>
@@ -44,12 +45,12 @@ void parse_tag_structures(const std::string& structure_str5, const std::string& 
 }
 
 void trim_tags3(auto& tags3, auto& names3) {
-    const std::string filename = std::string("trimmed_se.") + (is_fastq ? "fastq-trimmed.fastq" : "fasta-trimmed.fasta");
+    const std::string filename = trimmed_reads_path(is_fastq);
     std::ifstream ifs(filename);
-    if (!ifs) return;
+    if (!ifs) throw std::runtime_error("Cannot open " + filename + " to extract 3' tags");
     const std::string tmpfile = filename + ".tmp";
     std::ofstream ofs(tmpfile);
-    if (!ofs) return;
+    if (!ofs) throw std::runtime_error("Cannot open " + tmpfile + " for writing");
 
     const auto num_tags3 = tag_structure3.size();
     const size_t umi_idx = ranges::find_if(tag_structure3, [](const auto& p) { return p.first == "UMI"; }) - tag_structure3.begin();
