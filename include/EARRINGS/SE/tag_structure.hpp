@@ -55,22 +55,10 @@ void trim_tags3(auto& tags3, auto& names3) {
     const auto num_tags3 = tag_structure3.size();
     const size_t umi_idx = ranges::find_if(tag_structure3, [](const auto& p) { return p.first == "UMI"; }) - tag_structure3.begin();
 
+    // Reads are processed in batches so only one batch of records is in memory.
+    constexpr auto batch_size = size_t{1} << 20;
+
     auto extract_tags3 = [&]<typename Record>() {
-        std::vector<Record> records;
-        Record rec;
-        while (ifs >> rec) {
-            // Capture the name as skewer emitted it (i.e. exactly what
-            // trim_heads_to_stream wrote), before trim_tags3's own UMI append.
-            names3.push_back(read_qname(rec.name));
-            records.push_back(std::move(rec));
-        }
-        const auto num_records = records.size();
-
-        // Missing tags3 (read too short after adapter trimming) are left as
-        // empty strings, an unambiguous "no data" marker distinct from any
-        // real tag value (declared tag lengths are always > 0).
-        tags3.assign(num_records, std::vector<std::string>(num_tags3));
-
         // The declared tag region is split by adapter detection into:
         //   - tags3_kept_on_read  trailing bases still on each skewer-trimmed
         //                         read (peeled per-read here), and
@@ -84,29 +72,49 @@ void trim_tags3(auto& tags3, auto& names3) {
         const auto& absorbed = tags3_absorbed_prefix;
         const auto keep_on_read = tags3_kept_on_read;
 
-        #pragma omp parallel for schedule(static)
-        for (auto idx = size_t{}; idx < num_records; ++idx) {
-            auto& rec = records[idx];
-            auto& rec_tags = tags3[idx];
-
-            const auto seq_len = rec.seq.size();
-            if (seq_len < keep_on_read) continue;
-
-            const auto insert_len = seq_len - keep_on_read;
-            const auto full_tag = rec.seq.substr(insert_len, keep_on_read) + absorbed;
-            for (auto i = size_t{}, pos = size_t{}; i < num_tags3; ++i) {
-                const auto len = tag_structure3[i].second;
-                if (pos + len <= full_tag.size()) rec_tags[i] = full_tag.substr(pos, len);
-                pos += len;
+        std::vector<Record> records;
+        records.reserve(batch_size);
+        Record next;
+        for (bool more = true; more;) {
+            records.clear();
+            while (records.size() < batch_size && (more = static_cast<bool>(ifs >> next))) {
+                // Capture the name as skewer emitted it (i.e. exactly what
+                // trim_heads_to_stream wrote), before trim_tags3's own UMI append.
+                names3.push_back(read_qname(next.name));
+                records.push_back(std::move(next));
             }
-            if (umi_idx != num_tags3 && !rec_tags[umi_idx].empty()) rec.name += ":" + rec_tags[umi_idx];
+            const auto num_records = records.size();
+            const auto first = tags3.size();
 
-            rec.seq = rec.seq.substr(0, insert_len);
-            if constexpr (std::is_same_v<Record, biovoltron::FastqRecord<>>) rec.qual = rec.qual.substr(0, insert_len);
-        }
+            // Missing tags3 (read too short after adapter trimming) are left as
+            // empty strings, an unambiguous "no data" marker distinct from any
+            // real tag value (declared tag lengths are always > 0).
+            tags3.resize(first + num_records, std::vector<std::string>(num_tags3));
 
-        for (auto idx = size_t{}; idx < num_records; ++idx) {
-            ofs << records[idx] << '\n';
+            #pragma omp parallel for schedule(static)
+            for (auto idx = size_t{}; idx < num_records; ++idx) {
+                auto& rec = records[idx];
+                auto& rec_tags = tags3[first + idx];
+
+                const auto seq_len = rec.seq.size();
+                if (seq_len < keep_on_read) continue;
+
+                const auto insert_len = seq_len - keep_on_read;
+                const auto full_tag = rec.seq.substr(insert_len, keep_on_read) + absorbed;
+                for (auto i = size_t{}, pos = size_t{}; i < num_tags3; ++i) {
+                    const auto len = tag_structure3[i].second;
+                    if (pos + len <= full_tag.size()) rec_tags[i] = full_tag.substr(pos, len);
+                    pos += len;
+                }
+                if (umi_idx != num_tags3 && !rec_tags[umi_idx].empty()) rec.name += ":" + rec_tags[umi_idx];
+
+                rec.seq = rec.seq.substr(0, insert_len);
+                if constexpr (std::is_same_v<Record, biovoltron::FastqRecord<>>) rec.qual = rec.qual.substr(0, insert_len);
+            }
+
+            for (auto idx = size_t{}; idx < num_records; ++idx) {
+                ofs << records[idx] << '\n';
+            }
         }
     };
 
