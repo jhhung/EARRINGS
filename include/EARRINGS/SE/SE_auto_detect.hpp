@@ -393,7 +393,8 @@ void trim_heads_to_stream(std::string& reads_path, size_t head_len, std::vector<
 
     const auto num_tags5 = tag_structure5.size();
     const auto start_pos = head_len - tags5_total_len;
-    const size_t umi_idx = ranges::find_if(tag_structure5, [](const auto& p) { return p.first == "UMI"; }) - tag_structure5.begin();
+    const auto umi_idx = umi_index(tag_structure5);
+    if (num_tags5 > 0 && umi_idx != num_tags5) umi5_in_read_id = true;
 
     auto extract_tags5 = [&]<typename Record>() {
         Record rec;
@@ -406,11 +407,11 @@ void trim_heads_to_stream(std::string& reads_path, size_t head_len, std::vector<
                     rec_tags[i] = rec.seq.substr(pos, tag_structure5[i].second);
                     pos += tag_structure5[i].second;
                 }
-                if (umi_idx != num_tags5) rec.name += ":" + rec_tags[umi_idx];
             }
-            // Record the name as written downstream (post UMI append) so it
-            // matches what trim_tags3 reads back from skewer's output.
+            // The original read ID keys the tag table; export_tags_tsv adds
+            // the UMI back to match the names trim_tags3 reads from skewer.
             names5.push_back(read_qname(rec.name));
+            if (num_tags5 > 0 && umi_idx != num_tags5) add_umi_to_read_id(rec.name, rec_tags[umi_idx], true);
             tags5.push_back(std::move(rec_tags));
 
             rec.seq.erase(0, head_len);

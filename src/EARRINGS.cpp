@@ -533,14 +533,18 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             value<std::string>()->default_value(""),
             "The structure between the 5' adapter and the insert. "
             "Specify each element as name:length, separated by commas, in the actual order. "
-            "Each name must be unique. The name \"UMI\" specifically represents the UMI. "
+            "Each name must be unique, except \"UMI\", which may appear once in both -5 and -3. "
+            "The \"UMI\" tag is added to the read ID (ID:UMI); a UMI on both ends is joined "
+            "5' part first into one value, and a part that could not be read is filled with N. "
             "Example: \"UMI:6,cell_bc:8\"")
         ("3_tag_structure,3",
          boost::program_options::
             value<std::string>()->default_value(""),
             "The structure between the insert and the 3' adapter. "
             "Specify each element as name:length, separated by commas, in the actual order. "
-            "Each name must be unique. The name \"UMI\" specifically represents the UMI. "
+            "Each name must be unique, except \"UMI\", which may appear once in both -5 and -3. "
+            "The \"UMI\" tag is added to the read ID (ID:UMI); a UMI on both ends is joined "
+            "5' part first into one value, and a part that could not be read is filled with N. "
             "Example: \"UMI:6,cell_bc:8\"")
         ("sam",
          boost::program_options::

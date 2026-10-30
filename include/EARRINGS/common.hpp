@@ -17,6 +17,15 @@ inline std::string read_qname(const std::string& name) {
     return name.substr(0, name.find(' '));
 }
 
+// Add a UMI to the read ID (the first token of the header), not after the
+// comment, so tools that key on the ID see it: "ID:UMI comment". With
+// new_field false the UMI is appended to the last field instead, so a UMI
+// split over both read ends reads as one value ("ID:UMI5UMI3").
+inline void add_umi_to_read_id(std::string& name, std::string_view umi, bool new_field) {
+    const auto id_end = std::min(name.find(' '), name.size());
+    name.insert(id_end, (new_field ? ":" : "") + std::string(umi));
+}
+
 #define GET_STR(arg)			#arg
 #define GET_VERSION(ver)		GET_STR(ver)
 #define GET_EARRINGS_VERSION	GET_VERSION(EARRINGS_VERSION)
@@ -95,6 +104,16 @@ size_t estimated_tags3_len(0);
 // when extraction is disabled (unreliable estimate) where both are empty/0.
 size_t tags3_kept_on_read(0);
 std::string tags3_absorbed_prefix;
+// Set once trim_heads_to_stream has put the 5' UMI into the read IDs, so
+// trim_tags3 appends the 3' UMI to it instead of starting a new field.
+bool umi5_in_read_id(false);
+
+// Position of the tag named "UMI" in a tag structure, or its size if none.
+inline size_t umi_index(const std::vector<std::pair<std::string, size_t>>& structure) {
+    size_t i = 0;
+    while (i < structure.size() && structure[i].first != "UMI") ++i;
+    return i;
+}
 
 // for PE
 size_t thread_num(1);

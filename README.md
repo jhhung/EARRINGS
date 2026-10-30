@@ -139,11 +139,13 @@ Single-End mode parameters
     Alternative adapter if auto-detect mechanism fails.
   - Tag structure
     - -5 [ --5_tag_structure ] arg</br>
-    The structure between the 5' adapter and the insert. Specify each element as name:length, separated by commas, in the actual order. Each name must be unique. The name "UMI" specifically represents the UMI. Example: "UMI:6,cell_bc:8"
+    The structure between the 5' adapter and the insert. Specify each element as name:length, separated by commas, in the actual order. Each name must be unique, except "UMI", which may appear once in both ***-5*** and ***-3***. Example: "UMI:6,cell_bc:8"
     - -3 [ --3_tag_structure ] arg</br>
-    The structure between the insert and the 3' adapter. Specify each element as name:length, separated by commas, in the actual order. Each name must be unique. The name "UMI" specifically represents the UMI. Example: "UMI:6,cell_bc:8"
+    The structure between the insert and the 3' adapter. Specify each element as name:length, separated by commas, in the actual order. Each name must be unique, except "UMI", which may appear once in both ***-5*** and ***-3***. Example: "UMI:6,cell_bc:8"
 
-    When either structure is given, the extracted tags are written to ***&lt;output&gt;.tags.tsv*** (one row per read, one column per tag).
+    The tag named "UMI" is added to the read ID, before the header comment: ***@SRR123.1:ACGTAC length=51***. A UMI declared on both ends (e.g. ***-5 UMI:5 -3 UMI:5*** for 5N + 5N adapters) is joined into one value, 5' part first (***@SRR123.1:ACGTAGGCAT***); a part that could not be read (read too short, or 3' tag extraction disabled) is filled with ***N***, so every read carries a UMI of the same length.
+
+    When either structure is given, the extracted tags are written to ***&lt;output&gt;.tags.tsv***: one row per read, keyed by the original read ID (without the UMI), and one column per tag; an empty cell means the tag could not be read. With a UMI on both ends, the two parts are in ***UMI_5p*** and ***UMI_3p*** and the joined value (as in the read ID) in a last ***UMI*** column.
   - Alignment output
     - --sam arg (implicit 0)</br>
     Also write ***&lt;output&gt;.sam*** with each read's Tailor alignment against the reference (insert as M, 3' tail as a soft-clip; one record per locus; unmapped reads included; records in input order). This reruns the search pass separately from adapter detection, so it adds real time on large files. Bare ***--sam*** covers the whole input file; pass a number (e.g. ***--sam 50000***) to cap it to that many mapped reads instead.
