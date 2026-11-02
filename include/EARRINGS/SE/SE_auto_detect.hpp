@@ -20,6 +20,8 @@
 #include <fstream>
 #include <sstream>
 #include <memory>
+#include <mutex>
+#include <optional>
 #include <atomic>
 #include <utility>
 #include <vector>
@@ -40,49 +42,80 @@ auto make_input_view(std::istream &ifs) -> ranges::any_view<biovoltron::FastqRec
     }
 }
 
+// Align reads from the start of the input until 3000 tails are found (or the
+// input ends), and return the most common head length and the tails. Each thread takes the next chunk of reads from a shared reader,
+// so no thread waits for the slowest read of a batch. Results are then cut
+// back, in input order, to the shortest prefix of reads that holds 3000
+// tails, so they do not depend on the thread count or timing.
 template<class IFStream, class Tailor>
 std::pair<size_t, std::vector<std::string>> tailor_pipeline(
-    IFStream &&ifs, Tailor &&tailor, size_t num_reads
+    IFStream &&ifs, Tailor &&tailor
 ) {
-    constexpr auto npos = std::numeric_limits<uint32_t>::max(); 
+    constexpr auto npos = std::numeric_limits<uint32_t>::max();
+    constexpr auto chunk_size = size_t{128};
     constexpr auto target_tails = size_t{3000};
 
-    std::unordered_map<size_t, size_t> head_lens;
-    std::vector<std::string> tails;
-    tails.reserve(target_tails);
-
-    constexpr auto chunk_size = size_t{16};
-    const auto batch_size = chunk_size * thread_num;
+    struct Hit {
+        size_t read_idx;
+        size_t head_pos;
+        std::optional<std::string> tail;
+    };
+    std::vector<std::vector<Hit>> thread_hits(thread_num);
 
     auto records_view = make_input_view(ifs);
     auto it = records_view.begin();
+    auto next_read_idx = size_t{};
+    std::mutex reader_mutex;
+    std::atomic<size_t> num_tails{0};
 
-    while (ifs.good() && tails.size() < target_tails) {
-        std::vector<biovoltron::FastqRecord<>> records;
-        records.reserve(batch_size);
-        for (auto i = size_t{}; i < batch_size && it != records_view.end(); ++i, ++it) {
-            records.emplace_back(*it);
-        }
+    #pragma omp parallel num_threads(thread_num)
+    {
+        auto& hits = thread_hits[omp_get_thread_num()];
+        std::vector<biovoltron::FastqRecord<>> chunk;
+        chunk.reserve(chunk_size);
 
-        #pragma omp parallel for schedule(dynamic, chunk_size) num_threads(thread_num)
-        for (auto&& record : records) {
-            auto aln_pair = tailor.search(record);
-            const auto& [fwd_aln, rev_aln] = aln_pair;
-            const auto& alignment = fwd_aln.hits.empty() ? rev_aln : fwd_aln;
-
-            if (!alignment.hits.empty()) {
-                if (alignment.head_pos != npos) {
-                    #pragma omp critical (head)
-                    ++head_lens[alignment.head_pos];
+        while (num_tails.load(std::memory_order_relaxed) < target_tails) {
+            chunk.clear();
+            auto first_idx = size_t{};
+            {
+                std::lock_guard lock(reader_mutex);
+                first_idx = next_read_idx;
+                for (; chunk.size() < chunk_size && it != records_view.end();
+                     ++it, ++next_read_idx) {
+                    chunk.emplace_back(*it);
                 }
+            }
+            if (chunk.empty()) break;
 
+            for (auto i = size_t{}; i < chunk.size(); ++i) {
+                auto aln_pair = tailor.search(chunk[i]);
+                const auto& [fwd_aln, rev_aln] = aln_pair;
+                const auto& alignment = fwd_aln.hits.empty() ? rev_aln : fwd_aln;
+                if (alignment.hits.empty()) continue;
+
+                auto& hit = hits.emplace_back(Hit{first_idx + i, alignment.head_pos, std::nullopt});
                 if (alignment.tail_pos != npos) {
-                    auto tail = alignment.seq.substr(alignment.tail_pos);
-                    #pragma omp critical (tail)
-                    tails.push_back(std::move(tail));
+                    hit.tail = alignment.seq.substr(alignment.tail_pos);
+                    num_tails.fetch_add(1, std::memory_order_relaxed);
                 }
             }
         }
+    }
+
+    // Every chunk handed out was finished, so the hits cover a contiguous
+    // prefix of the input; keep the part up to the read that completes
+    // target_tails tails.
+    std::vector<Hit> all_hits;
+    for (auto& hits : thread_hits) std::ranges::move(hits, std::back_inserter(all_hits));
+    std::ranges::sort(all_hits, {}, &Hit::read_idx);
+
+    std::unordered_map<size_t, size_t> head_lens;
+    std::vector<std::string> tails;
+    tails.reserve(std::min(target_tails, num_tails.load()));
+    for (auto& hit : all_hits) {
+        if (tails.size() >= target_tails) break;
+        if (hit.head_pos != npos) ++head_lens[hit.head_pos];
+        if (hit.tail) tails.push_back(std::move(*hit.tail));
     }
 
     const auto head_len = head_lens.empty()
@@ -236,12 +269,12 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
         ifs.push(*src);
         if (!ifs.good()) throw std::runtime_error("Can't open input gz stream normally\n");
 
-        std::tie(head_len, tails) = tailor_pipeline(ifs, tailor, DETECT_N_READS);
+        std::tie(head_len, tails) = tailor_pipeline(ifs, tailor);
     } else {
         std::ifstream ifs(reads_path);
         if (!ifs.is_open() || !ifs.good()) throw std::runtime_error("Can't open input file normally\n");
 
-        std::tie(head_len, tails) = tailor_pipeline(ifs, tailor, DETECT_N_READS);
+        std::tie(head_len, tails) = tailor_pipeline(ifs, tailor);
     }
 
     // Optional full per-read alignment output, reusing the loaded index / Tailor.
