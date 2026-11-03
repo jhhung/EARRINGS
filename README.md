@@ -148,7 +148,7 @@ Single-End mode parameters
     When either structure is given, the extracted tags are written to ***&lt;output&gt;.tags.tsv***: one row per read, keyed by the original read ID (without the UMI), and one column per tag; an empty cell means the tag could not be read. With a UMI on both ends, the two parts are in ***UMI_5p*** and ***UMI_3p*** and the joined value (as in the read ID) in a last ***UMI*** column.
   - Alignment output
     - --sam arg (implicit 0)</br>
-    Also write ***&lt;output&gt;.sam*** with each read's Tailor alignment against the reference (insert as M, 3' tail as a soft-clip; one record per locus; unmapped reads included; records in input order). This reruns the search pass separately from adapter detection, so it adds real time on large files. Bare ***--sam*** covers the whole input file; pass a number (e.g. ***--sam 50000***) to cap it to that many mapped reads instead.
+    Also write ***&lt;output&gt;.sam*** with each **input (untrimmed)** read's Tailor alignment against the reference, so the 3' soft-clip is the tail plus any 3' tags and adapter. One record per locus, unmapped reads included, in input order. This reruns the search, so it adds time on large files. Bare ***--sam*** covers the whole file; ***--sam N*** stops after about N mapped reads.
 
 ### **Paired-End**
 

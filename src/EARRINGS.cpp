@@ -551,12 +551,13 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         ("sam",
          boost::program_options::
             value<std::size_t>()->implicit_value(0),
-            "Also write <output>.sam with each read's Tailor alignment against the "
-            "reference (insert as M, 3' tail as a soft-clip; one record per locus; "
-            "unmapped reads included; records in input order). This reruns the "
-            "search pass separately from adapter detection, so it adds real time on "
-            "large files. Bare --sam covers the whole input file; pass a number "
-            "(e.g. --sam 50000) to cap it to that many mapped reads instead.");
+            "Also write <output>.sam with each input (untrimmed) read's Tailor "
+            "alignment against the reference: unmatched bases skipped by -A are a "
+            "leading soft-clip, and the trailing soft-clip is the 3' tail plus any 3' tags and adapter. One record "
+            "per locus; unmapped reads included; records in input order. This reruns "
+            "the search pass separately from adapter detection, so it adds real time "
+            "on large files. Bare --sam covers the whole input file; pass a number "
+            "(e.g. --sam 50000) to stop after about that many mapped reads.");
 
         boost::program_options::variables_map vm;
         boost::program_options::store(

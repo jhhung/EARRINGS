@@ -154,16 +154,17 @@ inline std::unique_ptr<std::istream> open_se_reads(const std::string& reads_path
     return ifs;
 }
 
-// Run one independent Tailor search per read and write a SAM file (<output>.sam):
-// insert aligned as M, 3' tail as a soft-clip, one record per reported locus
+// Run one independent Tailor search per read and write a SAM file (<output>.sam).
+// The reads are the input (untrimmed) reads: bases skipped by -A that the head
+// extension cannot cover are a leading soft-clip, and the trailing soft-clip is the 3' tail plus any 3' tags and
+// adapter (sides swapped on '-' strand records). One record per reported locus
 // (NH tag = locus count), unmapped reads included. Records are in input order.
 // Opt-in via --sam; cap is the mapped-read limit for this pass (0 = unlimited,
 // i.e. the whole file), independent of adapter detection's own preview window.
 //
-// Known limitations (not SAM-format violations, left as-is): the 5' head/skipped
-// region is reported inside the leading M rather than soft-clipped; MAPQ is a
-// crude 255 - tail_len and is not lowered for multi-mappers; the MD tag is
-// dropped on '-' strand hits (the library reverses it incorrectly).
+// Known limitations (not SAM-format violations, left as-is): MAPQ is a crude
+// 255 - tail_len and is not lowered for multi-mappers; the MD tag is dropped on
+// '-' strand hits (the library reverses it incorrectly).
 template <class Tailor, class Index>
 void write_alignment_sam(const std::string& reads_path, const Tailor& tailor, const Index& bidir_index, std::size_t cap) {
     const auto sam_path = output_prefix() + ".sam";
