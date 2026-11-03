@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 
 using namespace EARRINGS;
@@ -42,11 +43,14 @@ auto make_input_view(std::istream &ifs) -> ranges::any_view<biovoltron::FastqRec
     }
 }
 
-// Align reads from the start of the input until 3000 tails are found (or the
-// input ends), and return the most common head length and the tails. Each thread takes the next chunk of reads from a shared reader,
-// so no thread waits for the slowest read of a batch. Results are then cut
-// back, in input order, to the shortest prefix of reads that holds 3000
-// tails, so they do not depend on the thread count or timing.
+// Align reads from the start of the input until 3000 tails from distinct
+// reads are found (or the input ends), and return the most common head length
+// and the tails. Duplicate reads (e.g. adapter dimers) add their tail once, so
+// a few abundant sequences cannot dominate the assembly. Each thread takes the
+// next chunk of reads from a shared reader, so no thread waits for the slowest
+// read of a batch. Results are then cut back, in input order, to the shortest
+// prefix of reads that holds 3000 such tails, so they do not depend on the
+// thread count or timing.
 template<class IFStream, class Tailor>
 std::pair<size_t, std::vector<std::string>> tailor_pipeline(
     IFStream &&ifs, Tailor &&tailor
@@ -59,7 +63,10 @@ std::pair<size_t, std::vector<std::string>> tailor_pipeline(
         size_t read_idx;
         size_t head_pos;
         std::optional<std::string> tail;
+        std::string seq;  // aligned read sequence, kept only for reads with a tail
     };
+    std::unordered_set<std::string> seen_reads;
+    std::mutex seen_mutex;
     std::vector<std::vector<Hit>> thread_hits(thread_num);
 
     auto records_view = make_input_view(ifs);
@@ -96,7 +103,13 @@ std::pair<size_t, std::vector<std::string>> tailor_pipeline(
                 auto& hit = hits.emplace_back(Hit{first_idx + i, alignment.head_pos, std::nullopt});
                 if (alignment.tail_pos != npos) {
                     hit.tail = alignment.seq.substr(alignment.tail_pos);
-                    num_tails.fetch_add(1, std::memory_order_relaxed);
+                    hit.seq = alignment.seq;
+                    auto is_new = false;
+                    {
+                        std::lock_guard lock(seen_mutex);
+                        is_new = seen_reads.insert(hit.seq).second;
+                    }
+                    if (is_new) num_tails.fetch_add(1, std::memory_order_relaxed);
                 }
             }
         }
@@ -104,7 +117,7 @@ std::pair<size_t, std::vector<std::string>> tailor_pipeline(
 
     // Every chunk handed out was finished, so the hits cover a contiguous
     // prefix of the input; keep the part up to the read that completes
-    // target_tails tails.
+    // target_tails tails, taking each distinct read's tail once.
     std::vector<Hit> all_hits;
     for (auto& hits : thread_hits) std::ranges::move(hits, std::back_inserter(all_hits));
     std::ranges::sort(all_hits, {}, &Hit::read_idx);
@@ -112,10 +125,12 @@ std::pair<size_t, std::vector<std::string>> tailor_pipeline(
     std::unordered_map<size_t, size_t> head_lens;
     std::vector<std::string> tails;
     tails.reserve(std::min(target_tails, num_tails.load()));
+    std::unordered_set<std::string> taken_reads;
     for (auto& hit : all_hits) {
         if (tails.size() >= target_tails) break;
         if (hit.head_pos != npos) ++head_lens[hit.head_pos];
-        if (hit.tail) tails.push_back(std::move(*hit.tail));
+        if (hit.tail && taken_reads.insert(std::move(hit.seq)).second)
+            tails.push_back(std::move(*hit.tail));
     }
 
     const auto head_len = head_lens.empty()
