@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <thread>
 #include <csignal>
+#include <fcntl.h>
 #include <unistd.h>
 #include <boost/program_options.hpp>
 #include <range/v3/all.hpp>
@@ -114,11 +115,16 @@ int main(int argc, const char* argv[]) {
             if (pipe(pipefd) != 0) {
                 throw std::runtime_error("Failed to create pipe for head trimming");
             }
+            // The default pipe holds 64 KiB, so the two sides wait for each other every few
+            // hundred reads. Best effort: the limit is /proc/sys/fs/pipe-max-size.
+            constexpr int pipe_buffer_size = 1 << 20;
+            fcntl(pipefd[1], F_SETPIPE_SZ, pipe_buffer_size);
 
             std::exception_ptr writer_exc;
             auto writer = std::thread([&]() {
                 try {
                     FILE* wfp = fdopen(pipefd[1], "w");
+                    setvbuf(wfp, nullptr, _IOFBF, pipe_buffer_size);
                     trim_heads_to_stream(ifs_name[0], head_len, tags5, names5, wfp);
                     fclose(wfp);
                 } catch (...) {
@@ -132,6 +138,7 @@ int main(int argc, const char* argv[]) {
                 | ::ranges::to<std::vector<const char*>>();
 
             FILE* rfp = fdopen(pipefd[0], "r");
+            setvbuf(rfp, nullptr, _IOFBF, pipe_buffer_size);
             const auto skewer_ret = skewer::mainStream(skewer_argv.size(), skewer_argv.data(), rfp);
             fclose(rfp);
 

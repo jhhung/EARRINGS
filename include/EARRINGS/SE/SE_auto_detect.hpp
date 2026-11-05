@@ -425,6 +425,23 @@ std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::st
     }
 }
 
+// Appends what `oss << rec << '\n'` would write, without a stream: the record in FASTA or
+// FASTQ format and a newline. One of these per read is hot when the reads go through a pipe.
+template <class Record>
+void append_record(std::string& out, const Record& rec) {
+    out += Record::START_SYMBOL;
+    out += rec.name;
+    out += '\n';
+    out += rec.seq;
+    if constexpr (std::is_same_v<Record, biovoltron::FastqRecord<>>) {
+        out += '\n';
+        out += Record::DELIM;
+        out += '\n';
+        out += rec.qual;
+    }
+    out += '\n';
+}
+
 void trim_heads_to_stream(std::string& reads_path, size_t head_len, std::vector<std::vector<std::string>>& tags5, std::vector<std::string>& names5, FILE* wfp) {
     std::unique_ptr<std::istream> ifs;
     if (is_gz_input) {
@@ -447,6 +464,7 @@ void trim_heads_to_stream(std::string& reads_path, size_t head_len, std::vector<
 
     auto extract_tags5 = [&]<typename Record>() {
         Record rec;
+        std::string out;
         while (*ifs >> rec) {
             std::vector<std::string> rec_tags;
             if (num_tags5 > 0) {
@@ -468,12 +486,11 @@ void trim_heads_to_stream(std::string& reads_path, size_t head_len, std::vector<
                 rec.qual.erase(0, head_len);
             }
 
-            std::ostringstream oss;
-            oss << rec << '\n';
-            const auto s = oss.str();
+            out.clear();
+            append_record(out, rec);
             // Fails (EPIPE) once skewer has stopped reading, e.g. when it
             // could not open its output.
-            if (fwrite(s.c_str(), 1, s.size(), wfp) != s.size())
+            if (fwrite(out.data(), 1, out.size(), wfp) != out.size())
                 throw std::runtime_error("Cannot pass reads to skewer");
         }
     };
