@@ -143,9 +143,12 @@ Single-End mode parameters
     - -3 [ --3_tag_structure ] arg</br>
     The structure between the insert and the 3' adapter. Specify each element as name:length, separated by commas, in the actual order. Each name must be unique, except "UMI", which may appear once in both ***-5*** and ***-3***. Example: "UMI:6,cell_bc:8"
 
-    The tag named "UMI" is added to the read ID, before the header comment: ***@SRR123.1:ACGTAC length=51***. A UMI declared on both ends (e.g. ***-5 UMI:5 -3 UMI:5*** for 5N + 5N adapters) is joined into one value, 5' part first (***@SRR123.1:ACGTAGGCAT***); a part that could not be read (read too short, or 3' tag extraction disabled) is filled with ***N***, so every read carries a UMI of the same length.
+    By default the tags are only removed from the reads. With ***--record_tags***, the tag named "UMI" is added to the read ID, before the header comment: ***@SRR123.1:ACGTAC length=51***. A UMI declared on both ends (e.g. ***-5 UMI:5 -3 UMI:5*** for 5N + 5N adapters) is joined into one value, 5' part first (***@SRR123.1:ACGTAGGCAT***); a part that could not be read (read too short, or 3' tag extraction disabled) is filled with ***N***, so every read carries a UMI of the same length.
 
-    When either structure is given, the extracted tags are written to ***&lt;output&gt;.tags.tsv***: one row per read, keyed by the original read ID (without the UMI), and one column per tag; an empty cell means the tag could not be read. With a UMI on both ends, the two parts are in ***UMI_5p*** and ***UMI_3p*** and the joined value (as in the read ID) in a last ***UMI*** column.
+    With ***--record_tags*** and either structure given, the extracted tags are written to ***&lt;output&gt;.tags.tsv***: one row per read, keyed by the original read ID (without the UMI), and one column per tag; an empty cell means the tag could not be read. With a UMI on both ends, the two parts are in ***UMI_5p*** and ***UMI_3p*** and the joined value (as in the read ID) in a last ***UMI*** column.
+    - --record_tags</br>
+    Keep the content of the tags given by ***-5*** / ***-3***: the UMI goes into the read ID and all tags into ***&lt;output&gt;.tags.tsv***. Without it the tags are only cut off the reads, which is faster (3' tags need no extra pass over the output).
+
   - Alignment output
     - --sam arg (implicit 0)</br>
     Also write ***&lt;output&gt;.sam*** with each **input (untrimmed)** read's Tailor alignment against the reference, so the 3' soft-clip is the tail plus any 3' tags and adapter. One record per locus, unmapped reads included, in input order. This reruns the search, so it adds time on large files. Bare ***--sam*** covers the whole file; ***--sam N*** stops after about N mapped reads.

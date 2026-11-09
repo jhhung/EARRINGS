@@ -103,6 +103,10 @@ int main(int argc, const char* argv[]) {
         };
         if (is_sensitive) skewer_args.insert(skewer_args.end(), {"-r", "0.2"});
         if (std::get<1>(adapter3_info)) skewer_args.emplace_back("-C");
+        // Tags that are not recorded are cut off by skewer itself while it writes each read.
+        if (!record_tags && tags3_kept_on_read > 0) {
+            skewer_args.insert(skewer_args.end(), {"--peel3", std::to_string(tags3_kept_on_read)});
+        }
 
         if (head_len > 0) {
             skewer_args.insert(skewer_args.begin() + 1, "");  // "" triggers bStdin=true in skewer GetOpt
@@ -155,8 +159,10 @@ int main(int argc, const char* argv[]) {
             if (skewer::main(skewer_argv.size(), skewer_argv.data()) != 0) return skewer_failed();
         }
 
-        if (!tag_structure3.empty()) trim_tags3(tags3, names3);
-        if (!tag_structure5.empty() || !tag_structure3.empty()) export_tags_tsv(names5, tags5, names3, tags3);
+        if (record_tags) {
+            if (!tag_structure3.empty()) trim_tags3(tags3, names3);
+            if (!tag_structure5.empty() || !tag_structure3.empty()) export_tags_tsv(names5, tags5, names3, tags3);
+        }
     } else if (std::string(argv[1]) == "paired") {
         init_paired(argc, argv);
 
@@ -555,6 +561,12 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             "The \"UMI\" tag is added to the read ID (ID:UMI); a UMI on both ends is joined "
             "5' part first into one value, and a part that could not be read is filled with N. "
             "Example: \"UMI:6,cell_bc:8\"")
+        ("record_tags",
+         boost::program_options::
+            bool_switch(),
+            "Record the content of the tags given by -5/-3: the UMI is added to the read ID and "
+            "all tags are written to <output>.tags.tsv. Without this option the tags are only "
+            "removed from the reads, which also saves a pass over the output for 3' tags.")
         ("sam",
          boost::program_options::
             value<std::size_t>()->implicit_value(0),
@@ -640,6 +652,13 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             }
         }
 
+        record_tags = vm["record_tags"].as<bool>();
+        if (!record_tags && (umi_index(tag_structure5) != tag_structure5.size() || umi_index(tag_structure3) != tag_structure3.size())) {
+            std::cout << "[WARN] a UMI is declared but --record_tags is not set; the UMI will be removed "
+                      << "from the reads but not recorded (add --record_tags to put it in the read ID "
+                      << "and <output>.tags.tsv)\n";
+        }
+
         if (vm.count("sam")) {
             sam_cap = vm["sam"].as<std::size_t>();
         }
@@ -682,7 +701,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         {
             std::vector<std::string> outputs{trimmed_reads_path(is_fastq), ofs_name[0] + "-trimmed.log"};
             if (sam_cap) outputs.push_back(output_prefix() + ".sam");
-            if (!tag_structure5.empty() || !tag_structure3.empty()) outputs.push_back(output_prefix() + ".tags.tsv");
+            if (record_tags && (!tag_structure5.empty() || !tag_structure3.empty())) outputs.push_back(output_prefix() + ".tags.tsv");
             ensure_outputs_are_not_inputs(outputs, {ifs_name[0]});
         }
 

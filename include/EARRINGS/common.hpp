@@ -87,6 +87,9 @@ size_t kmer_step(5);
 // Set (bare --sam) means write <output>.sam; the value is the mapped-read
 // cap for that pass, with 0 meaning unlimited (whole file).
 std::optional<std::size_t> sam_cap;
+// --record_tags: keep the content of the -5/-3 tags (UMI in the read ID, <output>.tags.tsv). Without it
+// the tags are only removed from the reads.
+bool record_tags(false);
 std::vector<std::pair<std::string, size_t>> tag_structure5;
 size_t tags5_total_len(0);
 std::vector<std::pair<std::string, size_t>> tag_structure3;

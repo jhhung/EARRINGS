@@ -458,16 +458,20 @@ void trim_heads_to_stream(std::string& reads_path, size_t head_len, std::vector<
     }
 
     const auto num_tags5 = tag_structure5.size();
+    // names5 and tags5 only feed the tags table (see export_tags_tsv in main), which is
+    // written only with --record_tags and a declared tag structure; otherwise keeping a name
+    // and a vector for every read is wasted time and memory (the 5' tags are still cut off).
+    const bool keep_tags = record_tags && (!tag_structure5.empty() || !tag_structure3.empty());
     const auto start_pos = head_len - tags5_total_len;
     const auto umi_idx = umi_index(tag_structure5);
-    if (num_tags5 > 0 && umi_idx != num_tags5) umi5_in_read_id = true;
+    if (record_tags && num_tags5 > 0 && umi_idx != num_tags5) umi5_in_read_id = true;
 
     auto extract_tags5 = [&]<typename Record>() {
         Record rec;
         std::string out;
         while (*ifs >> rec) {
             std::vector<std::string> rec_tags;
-            if (num_tags5 > 0) {
+            if (keep_tags && num_tags5 > 0) {
                 rec_tags.resize(num_tags5);
                 auto pos = start_pos;
                 for (auto i = size_t{}; i < num_tags5; ++i) {
@@ -477,9 +481,9 @@ void trim_heads_to_stream(std::string& reads_path, size_t head_len, std::vector<
             }
             // The original read ID keys the tag table; export_tags_tsv adds
             // the UMI back to match the names trim_tags3 reads from skewer.
-            names5.push_back(read_qname(rec.name));
-            if (num_tags5 > 0 && umi_idx != num_tags5) add_umi_to_read_id(rec.name, rec_tags[umi_idx], true);
-            tags5.push_back(std::move(rec_tags));
+            if (keep_tags) names5.push_back(read_qname(rec.name));
+            if (record_tags && num_tags5 > 0 && umi_idx != num_tags5) add_umi_to_read_id(rec.name, rec_tags[umi_idx], true);
+            if (keep_tags) tags5.push_back(std::move(rec_tags));
 
             rec.seq.erase(0, head_len);
             if constexpr (std::is_same_v<Record, biovoltron::FastqRecord<>>) {
