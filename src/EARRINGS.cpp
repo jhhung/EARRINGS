@@ -183,7 +183,12 @@ int main(int argc, const char* argv[]) {
                 std::cerr << "Warning: Too few BAM records: " << num_records << "\n";
             }
         }
-        PE_trim();
+        try {
+            PE_trim();
+        } catch (const std::exception& e) {
+            std::cerr << "Error: " << e.what() << "\n";
+            return EXIT_FAILURE;
+        }
     } else if (std::string(argv[1]) == "smallRNA") {
         skewer::cParameter para;
         for (int i = 2; i < argc; ++i)

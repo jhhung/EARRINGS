@@ -7,6 +7,7 @@
 #include <EARRINGS/PE/task.hpp>
 #include <EARRINGS/PE/buffer_manager.hpp>
 #include <EARRINGS/PE/rw_count.hpp>
+#include <EARRINGS/PE/ordered_queue.hpp>
 #include <EARRINGS/PE/trimmer.hpp>
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
@@ -15,6 +16,10 @@
 #include <tuple>
 #include <string_view>
 #include <algorithm>
+#include <array>
+#include <atomic>
+#include <exception>
+#include <thread>
 
 namespace fs = std::filesystem;
 using namespace EARRINGS;
@@ -28,11 +33,16 @@ namespace EARRINGS {
         using BIO_filtering_istream = boost::iostreams::filtering_istream;
         using BIO_filtering_ostream = boost::iostreams::filtering_ostream;
         using FORMAT2BIT = FORMAT<BITSTR>;
-        fs::path _tmp_path;
         BufferManager _buf_manager;
         Trimmer <PAIRED, FORMAT2BIT> _tr;
         RWCount _rw_count;
-        std::vector <fs::path> _tmp_dir;
+        // Trimmed reads of each mate, by chunk number, for the thread that writes that mate's output
+        std::array<OrderedQueue<std::string>, 2> _out_queue;
+        std::vector <std::thread> _writers;
+        std::array<std::exception_ptr, 2> _writer_exc;
+        std::atomic<bool> _failed{false};
+        // Chunks that are read but not yet written, at most: bounds the memory held for the writers
+        size_t _window;
         std::vector <IFS> _ifs;
         std::vector <OFS> _ofs;
         std::vector <std::string> _default_adapters;
@@ -58,9 +68,11 @@ namespace EARRINGS {
         template<class POOL>
         void trim_task(Task, POOL &);
 
-        void write_task(Task &task);
+        std::string assemble_output(size_t, const Task &);
 
-        void write_all_task();
+        void write_loop(size_t);
+
+        void stop_writers();
 
     public:
         TaskProcessor(size_t, size_t, size_t, std::vector <std::string> &, std::vector <std::string> &,
@@ -78,7 +90,8 @@ namespace EARRINGS {
                                                            size_t detect_n_reads, bool is_sensitive)
     // input/output files
             : _ifs(2), _ofs(2), _record_line(record_line), _chunk_size(chunk_size), _thread_num(thread_num),
-              _detect_n_reads(detect_n_reads), _default_adapters(default_adapter) {
+              _detect_n_reads(detect_n_reads), _default_adapters(default_adapter),
+              _window(2 * thread_num + 2) {
         _buf_manager.set_chunk_size(chunk_size, _thread_num);
 
         for (size_t i = 0; i < 2; ++i) {
@@ -119,13 +132,6 @@ namespace EARRINGS {
             }
         }
 
-        // create tmp dir
-        _tmp_path = scratch_dir();
-        _tmp_dir = std::vector < fs::path >
-                   {fs::path(_tmp_path / fs::path("pe1")), fs::path(_tmp_path / fs::path("pe2"))};
-        fs::create_directories(_tmp_dir[0]);
-        fs::create_directories(_tmp_dir[1]);
-
         // init adapters
         _adapters = decltype(_adapters)(2, BITSTR(""));
 
@@ -144,21 +150,63 @@ namespace EARRINGS {
     template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
     void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::process() {
         detect_adapters();
-        bool eof = false;
-        auto pool = biovoltron::make_threadpool(_thread_num);
-        while (true) {
-            if (!eof) {
-                auto [worker_id, fut] = pool.submit([this, &pool]() { return read_task(pool); });
-                eof = fut.get();
-            }
 
-            if (_rw_count.all_finished) {
-                std::cerr << "";
-            }
+        // One thread per mate writes the trimmed chunks, in order, straight to the output.
+        for (size_t j(0); j < 2; ++j)
+            _writers.emplace_back([this, j]() { write_loop(j); });
 
-            if (_rw_count.all_finished) {
-                break;
+        try {
+            bool eof = false;
+            auto pool = biovoltron::make_threadpool(_thread_num);
+            while (!_failed) {
+                if (!eof) {
+                    auto [worker_id, fut] = pool.submit([this, &pool]() { return read_task(pool); });
+                    eof = fut.get();
+                } else {
+                    // Everything is read; the chunks still being trimmed are the pool's, the writes are the writers'.
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                }
+
+                if (eof && _out_queue[0].consumed() == _rw_count.rend_count + 1
+                        && _out_queue[1].consumed() == _rw_count.rend_count + 1) {
+                    break;
+                }
             }
+        } catch (...) {
+            stop_writers();
+            throw;
+        }
+
+        for (auto &w : _writers) w.join();
+        _writers.clear();
+        for (auto &e : _writer_exc)
+            if (e) std::rethrow_exception(e);
+    }
+
+    // Tell the writers to stop and wait for them; used when the run is abandoned.
+    template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+    void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::stop_writers() {
+        _failed = true;
+        for (auto &q : _out_queue) q.close();
+        for (auto &w : _writers) w.join();
+        _writers.clear();
+    }
+
+    template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
+    void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::write_loop(size_t j) {
+        try {
+            std::string data;
+            while (_out_queue[j].pop_next(data)) {
+                _ofs[j].write(data.data(), static_cast<std::streamsize>(data.size()));
+                if (!_ofs[j]) throw std::runtime_error("Can't write to output file " + std::to_string(j + 1) + "\n");
+            }
+            _ofs[j].flush();
+            if (!_ofs[j]) throw std::runtime_error("Can't write to output file " + std::to_string(j + 1) + "\n");
+        } catch (...) {
+            _writer_exc[j] = std::current_exception();
+            // The other writer and the reader must not wait for this mate any more.
+            _failed = true;
+            for (auto &q : _out_queue) q.close();
         }
     }
 
@@ -272,13 +320,15 @@ namespace EARRINGS {
     bool TaskProcessor<FORMAT, BITSTR, IFS, OFS>::read_task(POOL &pool) {
         bool eof = false;
         Task task;
-        // write to buf until it is full.
-        while ((task.buf_idx = _buf_manager.inc_chunk_cnt()) != -1) {
+        // write to buf until it is full, or until too many chunks wait for the writers.
+        while (!_failed && _rw_count.rcount() - std::min(_out_queue[0].consumed(), _out_queue[1].consumed()) < _window
+               && (task.buf_idx = _buf_manager.inc_chunk_cnt()) != -1) {
             task.f_idx = _rw_count.rcount_fetch_add();
             eof = read_reads(task);
 
             if (eof) {
                 _rw_count.rend_count = task.f_idx;
+                for (auto &q : _out_queue) q.set_total(task.f_idx + 1);
                 pool.submit([this, task, &pool]() { trim_task(task, pool); });
                 break;
             }
@@ -298,89 +348,33 @@ namespace EARRINGS {
     void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::trim_task(Task task, POOL &pool) {
         // trimming
         trim_reads(task);
-        // add write task
-        write_task(task);
+        // hand the result to the writers, then the buffer can be read into again
+        for (size_t j(0); j < 2; ++j)
+            _out_queue[j].push(task.f_idx, assemble_output(j, task));
         _buf_manager.dec_chunk_cnt(task.buf_idx);
-        uint32_t wcount = _rw_count.wcount_fetch_add();
-
-        if (_rw_count.rend_count == wcount) {
-            pool.submit([this]() {
-                write_all_task();
-                _rw_count.all_finished = true;
-            });
-        } else;
     }
 
+    // The trimmed reads of mate j in this chunk, as they are written to the output.
     template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
-    void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::write_task(Task &task) {
-        std::ofstream f1(_tmp_dir[0] / fs::path(std::to_string(task.f_idx)), std::ios_base::binary);
-        std::ofstream f2(_tmp_dir[1] / fs::path(std::to_string(task.f_idx)), std::ios_base::binary);
-
-        if (!f1.good())
-            throw std::runtime_error("Can't read from tmp file1\n");
-
-        if (!f2.good())
-            throw std::runtime_error("Can't read from tmp file2\n");
-
-        f1.exceptions(std::ofstream::badbit | std::ofstream::failbit);
-        f2.exceptions(std::ofstream::badbit | std::ofstream::failbit);
-
+    std::string TaskProcessor<FORMAT, BITSTR, IFS, OFS>::assemble_output(size_t j, const Task &task) {
         size_t start_pos(task.buf_idx * _chunk_size);
         size_t end_pos(start_pos + _chunk_size);
 
         if (task.f_idx == _rw_count.rend_count) {
-            end_pos = start_pos + _rw_count.rend_idx - 1;
+            end_pos = start_pos + _rw_count.rend_idx;
         } else;
 
-        std::string tmp1(""), tmp2("");
-        tmp1.reserve(_buf_manager.buf[0][start_pos + 1].length() * 3 * _chunk_size);
-        tmp2.reserve(_buf_manager.buf[0][start_pos + 1].length() * 3 * _chunk_size);
+        std::string out;
+        out.reserve(_buf_manager.buf[0][start_pos + 1].length() * 3 * _chunk_size);
 
         for (size_t i(start_pos); i < end_pos; i += _record_line) {
             if (_buf_manager.buf[0][i].length() == 0) continue;
-            for (size_t j(0); j < _record_line; ++j) {
-                tmp1.append(_buf_manager.buf[0][i + j]);
-                tmp1.append("\n");
-
-                tmp2.append(_buf_manager.buf[1][i + j]);
-                tmp2.append("\n");
+            for (size_t k(0); k < _record_line; ++k) {
+                out.append(_buf_manager.buf[j][i + k]);
+                out.append("\n");
             }
         }
-
-        try {
-            f1 << tmp1;
-            f2 << tmp2;
-        }
-        catch (const std::exception &e) {
-            std::cerr << "ERROR: " << e.what() << std::endl;
-            std::cerr << "Failed to create/write temporary file, " << task.f_idx << "/" << _rw_count.rend_count
-                      << std::endl;
-            std::abort();
-        }
-
-        f1.close();
-        f2.close();
-    }
-
-    template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
-    void TaskProcessor<FORMAT, BITSTR, IFS, OFS>::write_all_task() {
-        // get all files under temporary directory
-        // that stores all the trimmed reads
-        std::string tmp_fname;
-
-        for (size_t j(0); j < 2; j++) {
-            std::string path(_tmp_dir[j]);
-            for (size_t i(0); i < _rw_count.rend_count + 1; i++) {
-                tmp_fname = path / fs::path(std::to_string(i));
-                std::ifstream tmp(tmp_fname, std::ios_base::binary);
-                if (!tmp.good())
-                    throw std::runtime_error("Can't read from specified files\n");
-
-                _ofs[j] << tmp.rdbuf();
-                std::filesystem::remove(tmp_fname);
-            }
-            std::filesystem::remove_all(path);
-        }
+        return out;
     }
 
     template<template<class> class FORMAT, class BITSTR, typename IFS, typename OFS>
@@ -388,7 +382,7 @@ namespace EARRINGS {
         size_t start_pos(task.buf_idx * _chunk_size);
         size_t end_pos(start_pos + _chunk_size);
         if (task.f_idx == _rw_count.rend_count) {
-            end_pos = start_pos + _rw_count.rend_idx - 1;
+            end_pos = start_pos + _rw_count.rend_idx;
         } else;
 
         FORMAT2BIT fm1, fm2;
