@@ -399,33 +399,38 @@ index once for a specific reference which is the source of the target reads.
             }
             const bool use_64bit = pick_use_64bit_index(total_bp);
 
-            std::ofstream table{vm["index_prefix"].as<std::string>() + ".table"};
+            const auto table_path = vm["index_prefix"].as<std::string>() + ".table";
             const char dense_flag = bucket.dense ? char{1} : char{0};
             const char size_flag = use_64bit ? char{1} : char{0};
-            table.write(&dense_flag, 1);
-            table.write(&size_flag, 1);
+
+            // Open the .table only after make_index() succeeds: it throws, e.g.,
+            // on duplicate sequence IDs, and a failed build must not leave a
+            // truncated index behind (or overwrite a good one).
+            auto build_and_save = [&](auto& bidir_index) {
+                if (!bucket.dense) bidir_index.set_sa_intv(bucket.sa_intv);
+                bidir_index.make_index(records);
+                std::ofstream table{table_path, std::ios::binary};
+                if (!table) throw std::runtime_error("Can't write index file " + table_path);
+                table.write(&dense_flag, 1);
+                table.write(&size_flag, 1);
+                bidir_index.save(table);
+            };
 
             if (use_64bit) {
                 if (bucket.dense) {
                     DenseIndex64 bidir_index;
-                    bidir_index.make_index(records);
-                    bidir_index.save(table);
+                    build_and_save(bidir_index);
                 } else {
                     SampledIndex64 bidir_index;
-                    bidir_index.set_sa_intv(bucket.sa_intv);
-                    bidir_index.make_index(records);
-                    bidir_index.save(table);
+                    build_and_save(bidir_index);
                 }
             } else {
                 if (bucket.dense) {
                     DenseIndex32 bidir_index;
-                    bidir_index.make_index(records);
-                    bidir_index.save(table);
+                    build_and_save(bidir_index);
                 } else {
                     SampledIndex32 bidir_index;
-                    bidir_index.set_sa_intv(bucket.sa_intv);
-                    bidir_index.make_index(records);
-                    bidir_index.save(table);
+                    build_and_save(bidir_index);
                 }
             }
         }
