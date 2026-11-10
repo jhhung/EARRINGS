@@ -70,6 +70,8 @@ Before conducting single-end adapter trimming, **one has to prebuild the index**
 > ./EARRINGS build -r 16S_rRNA_panel.fa -p 16S_rRNA_panel
 ```
 
+The sequences are named by the ID of their FASTA header, the text before the first space or tab (`>chr1 dna:chromosome` is `chr1`), which is also the reference name in `--sam` output. The IDs must be unique; `build` stops with an error otherwise and leaves an existing index untouched. An index built by an earlier version is refused with an "incompatible version" error: build it again.
+
 Build mode parameters
 
 - Required

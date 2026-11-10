@@ -172,10 +172,10 @@ void write_alignment_sam(const std::string& reads_path, const Tailor& tailor, co
     if (!ofs) throw std::runtime_error("Cannot open " + sam_path + " for writing");
 
     ofs << "@HD\tVN:1.6\tSO:unsorted\n";
-    for (const auto& cb : bidir_index.chr_bounds) {
-        const auto sn = cb.chrom.substr(0, cb.chrom.find(' '));
-        ofs << "@SQ\tSN:" << sn << "\tLN:" << bidir_index.get_chr_size(cb.chrom) << '\n';
-    }
+    // The index stores the sequence IDs (the FASTA header up to the first whitespace), which is
+    // what @SQ SN and RNAME need.
+    for (const auto& cb : bidir_index.chr_bounds)
+        ofs << "@SQ\tSN:" << cb.chrom << "\tLN:" << bidir_index.get_chr_size(cb.chrom) << '\n';
     ofs << "@PG\tID:EARRINGS\tPN:EARRINGS\tVN:" << std::string(GET_EARRINGS_VERSION) << '\n';
 
     // The library's Record operator<< appends a trailing tab after every field;
@@ -187,8 +187,7 @@ void write_alignment_sam(const std::string& reads_path, const Tailor& tailor, co
         while (!s.empty() && (s.back() == '\t' || s.back() == '\n')) s.pop_back();
         oss << s << '\n';
     };
-    // RNAME / QNAME must not contain whitespace and RNAME must match an @SQ SN;
-    // chr_bounds names (and read names) can carry a description after a space.
+    // QNAME must not contain whitespace, but a read name can carry a comment after a space.
     auto first_token = [](std::string& s) {
         if (auto p = s.find_first_of(" \t"); p != std::string::npos) s.resize(p);
     };
@@ -219,14 +218,12 @@ void write_alignment_sam(const std::string& reads_path, const Tailor& tailor, co
             const auto [fwd_aln, rev_aln] = tailor.search(rec);
             auto fwd_sams = biovoltron::aln_to_sam_list(fwd_aln);
             auto rev_sams = biovoltron::aln_to_sam_list(rev_aln);
+            // aln_to_sam_list's MD tag is only correct for the '+' strand
+            // (the '-' branch char-reverses the string); drop it there.
             for (auto* v : {&fwd_sams, &rev_sams})
-                for (auto& s : *v) {
-                    first_token(s.rname);
-                    // aln_to_sam_list's MD tag is only correct for the '+' strand
-                    // (the '-' branch char-reverses the string); drop it there.
+                for (auto& s : *v)
                     if (s.flag & 0x10)
                         std::erase_if(s.optionals, [](const std::string& o) { return o.starts_with("MD:Z:"); });
-                }
 
             std::ostringstream oss;
             if (fwd_sams.empty() && rev_sams.empty()) {
@@ -396,32 +393,38 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
 // instantiation -- together they determine which compile-time
 // BidirectionalIndex instantiation load() must be called on.
 std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::string &reads_path) {
-    std::ifstream fm_ifs{index_prefix + ".table"};
+    try {
+        std::ifstream fm_ifs{index_prefix + ".table"};
 
-    char dense_flag = 0;
-    char size_flag = 0;
-    fm_ifs.read(&dense_flag, 1);
-    fm_ifs.read(&size_flag, 1);
-    if (size_flag) {
-        if (dense_flag) {
-            DenseIndex64 bidir_index;
-            bidir_index.load(fm_ifs);
-            return seat_adapter_auto_detect_impl(reads_path, bidir_index);
+        char dense_flag = 0;
+        char size_flag = 0;
+        fm_ifs.read(&dense_flag, 1);
+        fm_ifs.read(&size_flag, 1);
+        if (size_flag) {
+            if (dense_flag) {
+                DenseIndex64 bidir_index;
+                bidir_index.load(fm_ifs);
+                return seat_adapter_auto_detect_impl(reads_path, bidir_index);
+            } else {
+                SampledIndex64 bidir_index;
+                bidir_index.load(fm_ifs);
+                return seat_adapter_auto_detect_impl(reads_path, bidir_index);
+            }
         } else {
-            SampledIndex64 bidir_index;
-            bidir_index.load(fm_ifs);
-            return seat_adapter_auto_detect_impl(reads_path, bidir_index);
+            if (dense_flag) {
+                DenseIndex32 bidir_index;
+                bidir_index.load(fm_ifs);
+                return seat_adapter_auto_detect_impl(reads_path, bidir_index);
+            } else {
+                SampledIndex32 bidir_index;
+                bidir_index.load(fm_ifs);
+                return seat_adapter_auto_detect_impl(reads_path, bidir_index);
+            }
         }
-    } else {
-        if (dense_flag) {
-            DenseIndex32 bidir_index;
-            bidir_index.load(fm_ifs);
-            return seat_adapter_auto_detect_impl(reads_path, bidir_index);
-        } else {
-            SampledIndex32 bidir_index;
-            bidir_index.load(fm_ifs);
-            return seat_adapter_auto_detect_impl(reads_path, bidir_index);
-        }
+    } catch (const std::exception& e) {
+        // e.g. an index built by an older version, or an unreadable input
+        std::cerr << "Error: " << e.what() << "\n";
+        std::exit(EXIT_FAILURE);
     }
 }
 
