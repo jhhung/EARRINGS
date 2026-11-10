@@ -162,9 +162,8 @@ inline std::unique_ptr<std::istream> open_se_reads(const std::string& reads_path
 // Opt-in via --sam; cap is the mapped-read limit for this pass (0 = unlimited,
 // i.e. the whole file), independent of adapter detection's own preview window.
 //
-// Known limitations (not SAM-format violations, left as-is): MAPQ is a crude
-// 255 - tail_len and is not lowered for multi-mappers; the MD tag is dropped on
-// '-' strand hits (the library reverses it incorrectly).
+// Known limitation (not a SAM-format violation, left as-is): MAPQ is a crude
+// 255 - tail_len and is not lowered for multi-mappers.
 template <class Tailor, class Index>
 void write_alignment_sam(const std::string& reads_path, const Tailor& tailor, const Index& bidir_index, std::size_t cap) {
     const auto sam_path = output_prefix() + ".sam";
@@ -218,12 +217,6 @@ void write_alignment_sam(const std::string& reads_path, const Tailor& tailor, co
             const auto [fwd_aln, rev_aln] = tailor.search(rec);
             auto fwd_sams = biovoltron::aln_to_sam_list(fwd_aln);
             auto rev_sams = biovoltron::aln_to_sam_list(rev_aln);
-            // aln_to_sam_list's MD tag is only correct for the '+' strand
-            // (the '-' branch char-reverses the string); drop it there.
-            for (auto* v : {&fwd_sams, &rev_sams})
-                for (auto& s : *v)
-                    if (s.flag & 0x10)
-                        std::erase_if(s.optionals, [](const std::string& o) { return o.starts_with("MD:Z:"); });
 
             std::ostringstream oss;
             if (fwd_sams.empty() && rev_sams.empty()) {
