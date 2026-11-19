@@ -1,5 +1,7 @@
 #pragma once
 #include <cstdint>
+#include <limits>
+#include <ranges>
 #include <cstdlib>
 #include <stdexcept>
 #include <iostream>
@@ -45,8 +47,25 @@ constexpr size_t DETECT_N_READS = 10000;
 // instantiation instead; below it, 32-bit halves the index's memory
 // footprint. The flag is persisted in the .table file (see EARRINGS.cpp /
 // SE_auto_detect.hpp) so `single`/`smallRNA` know which to load() into.
-using IndexSorter32 = biovoltron::PsaisSorter<std::uint32_t>;
-using IndexSorter64 = biovoltron::PsaisSorter<std::uint64_t>;
+//
+// The suffix array is fully sorted by KISS1Sorter (k = unlimited). Biovoltron
+// calls Sorter::get_sa(text), whose KISS1 default k = 256 would sort only the
+// first 256 symbols, which limits exact locate to patterns of at most
+// 256 - SA_INTV + 1 symbols. A full sort has no such limit and gives the same
+// SA (hence the same index) as PsaisSorter. GRCh38 F + revcomp(F), 64 threads
+// (lsf/jobs/2026-11-19_sorter-full): KISS1 full 178 s, KISS1 k=256 154 s,
+// PsaisSorter 583 s; peak memory 60 / 60 / 56 GB.
+template <typename size_type>
+struct KISS1FullSorter {
+    using SA_t = typename biovoltron::KISS1Sorter<size_type>::SA_t;
+    // The optional second argument (an ordering depth some callers pass) is
+    // ignored: a full sort satisfies any requested depth.
+    static auto get_sa(const std::ranges::random_access_range auto& ref, std::size_t = 0) {
+        return biovoltron::KISS1Sorter<size_type>::get_sa(ref, std::numeric_limits<size_type>::max());
+    }
+};
+using IndexSorter32 = KISS1FullSorter<std::uint32_t>;
+using IndexSorter64 = KISS1FullSorter<std::uint64_t>;
 using DenseIndex32   = biovoltron::BidirectionalIndex<true,  std::uint32_t, IndexSorter32>;
 using SampledIndex32 = biovoltron::BidirectionalIndex<false, std::uint32_t, IndexSorter32>;
 using DenseIndex64   = biovoltron::BidirectionalIndex<true,  std::uint64_t, IndexSorter64>;
