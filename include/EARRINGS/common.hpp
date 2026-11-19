@@ -71,23 +71,25 @@ using SampledIndex32 = biovoltron::BidirectionalIndex<false, std::uint32_t, Inde
 using DenseIndex64   = biovoltron::BidirectionalIndex<true,  std::uint64_t, IndexSorter64>;
 using SampledIndex64 = biovoltron::BidirectionalIndex<false, std::uint64_t, IndexSorter64>;
 
-// Shared "genome-scale" cutover: below it SA_INTV=256, above it SA_INTV=1024
+// Shared "genome-scale" cutover: below it SA_INTV=256, above it SA_INTV=16
 // (see pick_sa_intv_bucket), and it also doubles as the 32-bit/64-bit index
-// size_type boundary (see pick_use_64bit_index) -- one number to reason
-// about instead of two independently-tuned ones.
+// size_type boundary (see pick_use_64bit_index).
 constexpr std::size_t GENOME_SCALE_BP = 2'000'000'000;
 
 // SA_INTV bucket, chosen at `build` time from the reference's total bp and
 // persisted in the .table file (see EARRINGS.cpp / SE_auto_detect.hpp).
-// Each value is an empirical per-scale winner, not interpolated; other
-// candidates (32/64/128/512) never won at any tested scale, hence absent.
+// Each value is an empirical per-scale winner, not interpolated.
 // Machine-dependent (NUMA, cache size, thread count) -- see sa_intv_bench/.
+// Above GENOME_SCALE_BP: 16, measured on GRCh38 on LSF
+// (lsf/jobs/2026-11-18_sa-intv-grch38; --sam query time rises steadily with
+// SA_INTV, 1024 was ~20x slower than 16). The smaller buckets predate that
+// job and have not been re-measured on LSF.
 struct SaIntvBucket { bool dense; int sa_intv; };
 inline SaIntvBucket pick_sa_intv_bucket(std::size_t total_bp) {
     if (total_bp <= 100'000)         return {true, 1};
     if (total_bp <= 80'000'000)      return {false, 16};
     if (total_bp <= GENOME_SCALE_BP) return {false, 256};
-    return {false, 1024};
+    return {false, 16};
 }
 
 inline bool pick_use_64bit_index(std::size_t total_bp) {
