@@ -1,4 +1,5 @@
 #pragma once
+#include <functional>
 
 #include <iostream>
 #include <string>
@@ -31,17 +32,24 @@ namespace EARRINGS::format {
         using NTable = std::vector<std::pair<uint64_t, uint64_t>>;
         FastqState state_ = FastqState::name;
 
+        // An unknown base (N) is kept as 'N': the parser replaces it by a filler base for the trimming
+        // and the output writes the 'N' back.
         inline static char normalize_base(char base, const std::string& function_name) {
+            if (base == 'N' || base == 'n') return 'N';
             if (!Codec::is_valid(base)) {
                 throw FastqException("Error: " + function_name + "(): invalid input seq character\n");
             }
             return Codec::to_char(Codec::to_int(base));
         }
 
-        static int fast_rand() noexcept {
-            static std::mt19937 rng(std::random_device{}());
-            static std::uniform_int_distribution<int> dist(0, 3);
-            return dist(rng);
+        // The filler for an N: a base picked from the read name and the position, so that the result of
+        // a run does not depend on the order or the thread the reads are parsed in.
+        static int fast_rand(const std::string& name, size_t i) noexcept {
+            uint64_t x = std::hash<std::string>{}(name) + 0x9E3779B97F4A7C15ull * (i + 1);
+            x ^= x >> 30; x *= 0xBF58476D1CE4E5B9ull;
+            x ^= x >> 27; x *= 0x94D049BB133111EBull;
+            x ^= x >> 31;
+            return static_cast<int>(x & 3);
         }
 
     public:
@@ -93,7 +101,7 @@ namespace EARRINGS::format {
                             if (base == 'N') {
                                 fq.n_base_info_table.emplace_back(i, 0);
                                 for (; i < buf.size() && (buf.at(i) == 'N' || buf.at(i) == 'n'); ++i) {
-                                    fq.seq.push_back(Codec::to_char(Fastq::fast_rand()));
+                                    fq.seq.push_back(Codec::to_char(Fastq::fast_rand(fq.name, i)));
                                     fq.n_base_info_table.back().second++;
                                 }
                                 i--;
@@ -167,7 +175,7 @@ namespace EARRINGS::format {
                             if (base == 'N') {
                                 fq.n_base_info_table.emplace_back(i, 0);
                                 for (; i < it->size() && (it->at(i) == 'N' || it->at(i) == 'n'); ++i) {
-                                    fq.seq.push_back(Codec::to_char(Fastq::fast_rand()));
+                                    fq.seq.push_back(Codec::to_char(Fastq::fast_rand(fq.name, i)));
                                     fq.n_base_info_table.back().second++;
                                 }
                                 i--;
