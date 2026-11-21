@@ -4,7 +4,9 @@
 #include <string>
 #include <vector>
 #include <experimental/vector>
+#include <algorithm>
 #include <array>
+#include <string_view>
 #include <string>
 #include <unordered_map>
 #include <range/v3/all.hpp>
@@ -65,6 +67,74 @@ std::pair<size_t, bool> estimate_tags3_len(
     return {best->first, reliable};
 }
 
+// A base next to the adapter's 5' end belongs to the adapter only if it is on
+// at least this share of the tails at that point, i.e. of the tails that
+// contain the k-mer right after it. The graph's PRUNE_FACTOR is a share of ALL
+// tails, so a base that merely precedes the adapter on many reads (an insert
+// end, a tail, a random tag base) is joined to it, and an adapter start that
+// most tails carry is dropped when its count is below PRUNE_FACTOR.
+static constexpr double ADAPTER_START_SHARE = 0.5;
+// The 5' extension also needs this share of all tails behind the base.
+static constexpr double ADAPTER_START_MIN_SUPPORT = 0.01;
+
+// Among the tails containing `kmer`, count those in which its first occurrence
+// is preceded by each base (index 0-3: A C G T, 4: other) and those starting
+// with it. Returns {per-base counts, total containing}.
+inline std::pair<std::array<size_t, 5>, size_t> preceding_bases(
+    const std::vector<std::string>& tails, std::string_view kmer
+) {
+    std::array<size_t, 5> pre{};
+    size_t total = 0;
+    for (const auto& t : tails) {
+        const auto pos = t.find(kmer);
+        if (pos == std::string::npos) continue;
+        ++total;
+        if (pos == 0) continue;
+        switch (t[pos - 1]) {
+            case 'A': ++pre[0]; break;
+            case 'C': ++pre[1]; break;
+            case 'G': ++pre[2]; break;
+            case 'T': ++pre[3]; break;
+            default: ++pre[4];
+        }
+    }
+    return {pre, total};
+}
+
+// Place the 5' end of an assembled adapter by ADAPTER_START_SHARE:
+//  - within the first k bases, drop everything up to the last base that is on
+//    less than that share of the tails containing the k-mer after it;
+//  - if nothing was dropped, extend 5' while one base precedes the first k-mer
+//    on at least that share of the tails containing it (and on at least
+//    ADAPTER_START_MIN_SUPPORT of all tails).
+inline std::string refine_adapter_start(
+    const std::string& adapter,
+    const std::vector<std::string>& tails,
+    const size_t k
+) {
+    static constexpr std::array<char, 4> acgt = {'A', 'C', 'G', 'T'};
+    if (adapter.size() < k + 1 || tails.empty()) return adapter;
+
+    size_t first = 0;
+    for (size_t i = 0; i < k && i + 1 + k <= adapter.size(); ++i) {
+        const auto [pre, total] = preceding_bases(tails, std::string_view(adapter).substr(i + 1, k));
+        size_t on_base = 0;
+        for (size_t b = 0; b < 4; ++b) if (acgt[b] == adapter[i]) on_base = pre[b];
+        if (total == 0 || on_base < ADAPTER_START_SHARE * total) first = i + 1;
+    }
+    if (first > 0) return adapter.substr(first);
+
+    std::string seq = adapter;
+    const auto min_support = ADAPTER_START_MIN_SUPPORT * tails.size();
+    for (size_t step = 0; step < 64; ++step) {
+        const auto [pre, total] = preceding_bases(tails, std::string_view(seq).substr(0, k));
+        const auto best = static_cast<size_t>(std::max_element(pre.begin(), pre.begin() + 4) - pre.begin());
+        if (pre[best] == 0 || pre[best] < min_support || pre[best] < ADAPTER_START_SHARE * total) break;
+        seq.insert(seq.begin(), acgt[best]);
+    }
+    return seq;
+}
+
 // max_try is set to 5 in sensitive mode
 template<bool IS_SENSITIVE>
 std::pair<std::string, bool> assemble_adapters(
@@ -111,6 +181,8 @@ std::pair<std::string, bool> assemble_adapters(
         return assemble_adapters<IS_SENSITIVE>(original_tails, kmer_size + kmer_step, max_try);
     }
     
+    adapters[0] = refine_adapter_start(adapters[0], original_tails, kmer_size);
+
     // increase k-mer when low complexity adapters are assembled
     if (detect_low_complexity(adapters[0], kmer_size)) {
         if (kmer_size >= MAX_KMER) {
