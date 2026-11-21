@@ -80,9 +80,11 @@ void trim_tags3_generic(auto& tags3, auto& names3) {
         //                         adapter3 and hence already gone from the read;
         //                         the same value for every read.
         // Their concatenation, in insert->adapter order, is the full tag region.
-        // When extraction was disabled (unreliable estimate) tags3_kept_on_read
-        // is 0 and tags3_absorbed_prefix empty, so every tag comes out empty and
-        // reads are left untouched.
+        // When the tag position cannot be estimated reliably, the declared
+        // length is used: tags3_kept_on_read = tags3_total_len and nothing is
+        // taken from adapter3. If tags3_kept_on_read is 0 and
+        // tags3_absorbed_prefix empty, every tag comes out empty and reads are
+        // left untouched.
         const auto& absorbed = tags3_absorbed_prefix;
         const auto keep_on_read = tags3_kept_on_read;
 

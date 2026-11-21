@@ -336,11 +336,16 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
             // assembles in).
             constexpr size_t MIN_REMAINING_ADAPTER_LEN = 10;
             if (!reliable) {
-                // Signal too weak/flat to locate the insert/tag boundary.
+                // Signal too weak/flat to locate the insert/tag boundary
+                // (e.g. reads whose own 3' tails spread the offsets). The user
+                // declared the structure, so take it as given: all declared
+                // tag bases sit on the read between the insert and adapter3.
+                // Dropping the tags instead would leave them on every insert,
+                // where they read as a tail.
                 std::cout << "[WARN] 3' tag position could not be estimated reliably "
-                          << "(try adjusting --seed_len / --prune_factor); "
-                          << "3' tags will not be extracted\n";
-                tags3_kept_on_read = 0;
+                          << "(estimate " << estimated_tags3_len << " nt); using the declared "
+                          << tags3_total_len << " nt\n";
+                tags3_kept_on_read = tags3_total_len;
                 tags3_absorbed_prefix.clear();
             } else if (estimated_tags3_len >= tags3_total_len) {
                 // Nothing absorbed: the whole tag region is on the read.
