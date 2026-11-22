@@ -25,12 +25,18 @@
 #include <atomic>
 #include <utility>
 #include <vector>
+#include <span>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 
 using namespace EARRINGS;
 namespace EARRINGS {
+
+// Reads whose exact-match phase Tailor::search_batch interleaves at a time:
+// while one read waits for index memory, the next one is extended. Results are
+// the same as searching the reads one by one; only the speed depends on it.
+inline constexpr auto search_window = size_t{16};
 
 auto make_input_view(std::istream &ifs) -> ranges::any_view<biovoltron::FastqRecord<>> {
     if (is_fastq) {
@@ -94,9 +100,12 @@ std::pair<size_t, std::vector<std::string>> tailor_pipeline(
             }
             if (chunk.empty()) break;
 
+            // The whole chunk is searched either way (the stop condition is
+            // checked between chunks), so searching it as a batch searches the
+            // same reads and gives the same alignments as one search() each.
+            const auto results = tailor.search_batch(chunk, search_window);
             for (auto i = size_t{}; i < chunk.size(); ++i) {
-                auto aln_pair = tailor.search(chunk[i]);
-                const auto& [fwd_aln, rev_aln] = aln_pair;
+                const auto& [fwd_aln, rev_aln] = results[i];
                 const auto& alignment = fwd_aln.hits.empty() ? rev_aln : fwd_aln;
                 if (alignment.hits.empty()) continue;
 
@@ -208,26 +217,40 @@ void write_alignment_sam(const std::string& reads_path, const Tailor& tailor, co
         std::vector<std::string> lines(records.size());
         std::vector<char> mapped(records.size(), 0);
 
-        #pragma omp parallel for schedule(dynamic, chunk_size) num_threads(thread_num)
-        for (size_t i = 0; i < records.size(); ++i) {
-            auto& rec = records[i];
-            first_token(rec.name);
-            if (rec.qual.empty()) rec.qual.assign(rec.seq.size(), 'I');
-
-            const auto [fwd_aln, rev_aln] = tailor.search(rec);
-            auto fwd_sams = biovoltron::aln_to_sam_list(fwd_aln);
-            auto rev_sams = biovoltron::aln_to_sam_list(rev_aln);
-
-            std::ostringstream oss;
-            if (fwd_sams.empty() && rev_sams.empty()) {
-                oss << rec.name << "\t4\t*\t0\t0\t*\t*\t0\t0\t"
-                    << rec.seq << '\t' << rec.qual << '\n';
-            } else {
-                mapped[i] = 1;
-                for (const auto& sam : fwd_sams) emit(oss, sam);
-                for (const auto& sam : rev_sams) emit(oss, sam);
+        // Each thread takes chunk_size reads at a time (as the per-read
+        // schedule(dynamic, chunk_size) did) and searches them as one batch;
+        // lines stay in input order.
+        const auto n_chunks = (records.size() + chunk_size - 1) / chunk_size;
+        #pragma omp parallel for schedule(dynamic, 1) num_threads(thread_num)
+        for (size_t c = 0; c < n_chunks; ++c) {
+            const auto first = c * chunk_size;
+            const auto count = std::min(chunk_size, records.size() - first);
+            for (size_t i = first; i < first + count; ++i) {
+                first_token(records[i].name);
+                if (records[i].qual.empty()) records[i].qual.assign(records[i].seq.size(), 'I');
             }
-            lines[i] = oss.str();
+            const auto results = tailor.search_batch(
+                std::span<const biovoltron::FastqRecord<>>{records.data() + first, count},
+                search_window);
+
+            for (size_t k = 0; k < count; ++k) {
+                const auto i = first + k;
+                const auto& rec = records[i];
+                const auto& [fwd_aln, rev_aln] = results[k];
+                auto fwd_sams = biovoltron::aln_to_sam_list(fwd_aln);
+                auto rev_sams = biovoltron::aln_to_sam_list(rev_aln);
+
+                std::ostringstream oss;
+                if (fwd_sams.empty() && rev_sams.empty()) {
+                    oss << rec.name << "\t4\t*\t0\t0\t*\t*\t0\t0\t"
+                        << rec.seq << '\t' << rec.qual << '\n';
+                } else {
+                    mapped[i] = 1;
+                    for (const auto& sam : fwd_sams) emit(oss, sam);
+                    for (const auto& sam : rev_sams) emit(oss, sam);
+                }
+                lines[i] = oss.str();
+            }
         }
 
         for (size_t i = 0; i < lines.size(); ++i) {
