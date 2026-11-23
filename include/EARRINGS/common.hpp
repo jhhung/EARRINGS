@@ -71,6 +71,13 @@ using SampledIndex32 = biovoltron::BidirectionalIndex<false, std::uint32_t, Inde
 using DenseIndex64   = biovoltron::BidirectionalIndex<true,  std::uint64_t, IndexSorter64>;
 using SampledIndex64 = biovoltron::BidirectionalIndex<false, std::uint64_t, IndexSorter64>;
 
+// Lookup length of the indexes EARRINGS builds and loads. Detection and --sam
+// search through a BidirectionalSearcher, which starts from the whole BWT and
+// never reads the lookup table, so the index is built without one (length 0:
+// a table of one key). Indexes built with the earlier default (14) still load:
+// the table is skipped on load, and then the length does not have to match.
+inline constexpr int INDEX_LOOKUP_LEN = 0;
+
 // Shared "genome-scale" cutover: below it SA_INTV=256, above it SA_INTV=16
 // (see pick_sa_intv_bucket), and it also doubles as the 32-bit/64-bit index
 // size_type boundary (see pick_use_64bit_index).

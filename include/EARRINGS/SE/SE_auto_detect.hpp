@@ -417,9 +417,13 @@ inline std::jthread index_release;
 template <class IndexType>
 std::pair<size_t, std::pair<std::string, bool>>
 seat_adapter_auto_detect_with(std::string &reads_path, std::ifstream &fm_ifs, const std::string &fm_path) {
-    auto bidir_index = std::make_unique<IndexType>();
+    auto bidir_index = std::make_unique<IndexType>(INDEX_LOOKUP_LEN);
     // With the path, the index's large arrays are read by several threads.
-    bidir_index->load(fm_ifs, fm_path);
+    // The lookup table is skipped (2 GB in an index built with length 14):
+    // only get_range(seed) uses it, and detection searches through a
+    // BidirectionalSearcher. Without it the file's lookup length need not
+    // match INDEX_LOOKUP_LEN.
+    bidir_index->load(fm_ifs, fm_path, /*with_lookup=*/false);
     auto result = seat_adapter_auto_detect_impl(reads_path, *bidir_index);
     index_release = std::jthread([index = std::move(bidir_index)]() mutable { index.reset(); });
     return result;

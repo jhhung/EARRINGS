@@ -423,18 +423,18 @@ index once for a specific reference which is the source of the target reads.
 
             if (use_64bit) {
                 if (bucket.dense) {
-                    DenseIndex64 bidir_index;
+                    DenseIndex64 bidir_index{INDEX_LOOKUP_LEN};
                     build_and_save(bidir_index);
                 } else {
-                    SampledIndex64 bidir_index;
+                    SampledIndex64 bidir_index{INDEX_LOOKUP_LEN};
                     build_and_save(bidir_index);
                 }
             } else {
                 if (bucket.dense) {
-                    DenseIndex32 bidir_index;
+                    DenseIndex32 bidir_index{INDEX_LOOKUP_LEN};
                     build_and_save(bidir_index);
                 } else {
-                    SampledIndex32 bidir_index;
+                    SampledIndex32 bidir_index{INDEX_LOOKUP_LEN};
                     build_and_save(bidir_index);
                 }
             }
