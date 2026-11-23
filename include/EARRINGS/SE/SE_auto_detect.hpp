@@ -26,6 +26,7 @@
 #include <utility>
 #include <vector>
 #include <span>
+#include <thread>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -408,6 +409,22 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
     return {head_len, adapter3_info};
 }
 
+// Frees the index of the last detection. Returning gigabytes to the OS takes
+// about a second for a genome index; on this thread it overlaps the trimming
+// instead of delaying it. Joined at exit.
+inline std::jthread index_release;
+
+template <class IndexType>
+std::pair<size_t, std::pair<std::string, bool>>
+seat_adapter_auto_detect_with(std::string &reads_path, std::ifstream &fm_ifs, const std::string &fm_path) {
+    auto bidir_index = std::make_unique<IndexType>();
+    // With the path, the index's large arrays are read by several threads.
+    bidir_index->load(fm_ifs, fm_path);
+    auto result = seat_adapter_auto_detect_impl(reads_path, *bidir_index);
+    index_release = std::jthread([index = std::move(bidir_index)]() mutable { index.reset(); });
+    return result;
+}
+
 // .table files start with a 1-byte flag (written by `build` in EARRINGS.cpp)
 // saying whether the index is Dense (SA_INTV bucket <= 100Kbp) or Sampled,
 // then a size_flag byte saying whether it's the 32-bit or 64-bit
@@ -415,33 +432,19 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
 // BidirectionalIndex instantiation load() must be called on.
 std::pair<size_t, std::pair<std::string, bool>> seat_adapter_auto_detect(std::string &reads_path) {
     try {
-        std::ifstream fm_ifs{index_prefix + ".table"};
+        const auto fm_path = index_prefix + ".table";
+        std::ifstream fm_ifs{fm_path};
 
         char dense_flag = 0;
         char size_flag = 0;
         fm_ifs.read(&dense_flag, 1);
         fm_ifs.read(&size_flag, 1);
         if (size_flag) {
-            if (dense_flag) {
-                DenseIndex64 bidir_index;
-                bidir_index.load(fm_ifs);
-                return seat_adapter_auto_detect_impl(reads_path, bidir_index);
-            } else {
-                SampledIndex64 bidir_index;
-                bidir_index.load(fm_ifs);
-                return seat_adapter_auto_detect_impl(reads_path, bidir_index);
-            }
-        } else {
-            if (dense_flag) {
-                DenseIndex32 bidir_index;
-                bidir_index.load(fm_ifs);
-                return seat_adapter_auto_detect_impl(reads_path, bidir_index);
-            } else {
-                SampledIndex32 bidir_index;
-                bidir_index.load(fm_ifs);
-                return seat_adapter_auto_detect_impl(reads_path, bidir_index);
-            }
+            if (dense_flag) return seat_adapter_auto_detect_with<DenseIndex64>(reads_path, fm_ifs, fm_path);
+            return seat_adapter_auto_detect_with<SampledIndex64>(reads_path, fm_ifs, fm_path);
         }
+        if (dense_flag) return seat_adapter_auto_detect_with<DenseIndex32>(reads_path, fm_ifs, fm_path);
+        return seat_adapter_auto_detect_with<SampledIndex32>(reads_path, fm_ifs, fm_path);
     } catch (const std::exception& e) {
         // e.g. an index built by an older version, or an unreadable input
         std::cerr << "Error: " << e.what() << "\n";
