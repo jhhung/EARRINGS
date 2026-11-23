@@ -1,4 +1,6 @@
 #pragma once
+#include <future>
+#include <streambuf>
 #include <biovoltron/algo/align/tailor/tailor.hpp>
 #include <biovoltron/algo/align/tailor/bidirectional_index.hpp>
 #include <biovoltron/file_io/fasta.hpp>
@@ -473,6 +475,175 @@ void append_record(std::string& out, const Record& rec) {
     out += '\n';
 }
 
+// Reads `head`, then whatever is left in `src`.
+class ChainedStreambuf : public std::streambuf {
+  public:
+    ChainedStreambuf(std::string head, std::streambuf* src) : head_(std::move(head)), src_(src), buf_(1 << 16) {
+        setg(head_.data(), head_.data(), head_.data() + head_.size());
+    }
+
+  protected:
+    int_type underflow() override {
+        if (gptr() < egptr()) return traits_type::to_int_type(*gptr());
+        if (traits_type::eq_int_type(src_->sgetc(), traits_type::eof())) return traits_type::eof();
+        const auto avail = std::max<std::streamsize>(1, src_->in_avail());
+        const auto n = src_->sgetn(buf_.data(), std::min<std::streamsize>(avail, buf_.size()));
+        if (n <= 0) return traits_type::eof();
+        setg(buf_.data(), buf_.data(), buf_.data() + n);
+        return traits_type::to_int_type(*gptr());
+    }
+
+  private:
+    std::string head_;
+    std::streambuf* src_;
+    std::vector<char> buf_;
+};
+
+// Fast path of trim_heads_to_stream for records in the usual layout: 4-line FASTQ
+// ("@id\nseq\n+...\nqual\n", qual as long as seq) or 2-line FASTA. Reads large chunks, splits
+// them into records, cuts the 5' ends on several threads and writes them in order, while the next
+// chunk is prepared. Stops at the
+// first record of another layout (or the unterminated last one) and returns the unread bytes
+// from there on, for the general parser to continue with what is left in `src`.
+inline std::string trim_heads_fast(std::streambuf* src, size_t head_len, size_t start_pos, bool keep_tags,
+                                   std::vector<std::vector<std::string>>& tags5, std::vector<std::string>& names5,
+                                   FILE* wfp, size_t chunk_bytes = size_t{4} << 20) {
+    const bool fastq = is_fastq;
+    const char start_symbol = fastq ? '@' : '>';
+    const size_t lines_per_record = fastq ? 4 : 2;
+    const auto num_tags5 = tag_structure5.size();
+    const auto umi_idx = umi_index(tag_structure5);
+    const bool add_umi = record_tags && num_tags5 > 0 && umi_idx != num_tags5;
+    // Beyond this length every tag's start is inside the read (an empty or shortened tag at the
+    // very end included), as std::string::substr requires; the general parser reports the rest.
+    size_t min_len = 0;
+    if (keep_tags && num_tags5 > 0) {
+        min_len = start_pos;
+        for (size_t i = 0; i + 1 < num_tags5; ++i) min_len += tag_structure5[i].second;
+    }
+    size_t umi_off = start_pos;
+    for (size_t i = 0; i < umi_idx && i < num_tags5; ++i) umi_off += tag_structure5[i].second;
+
+    struct Rec { const char *name, *seq, *qual; uint32_t name_len, seq_len; };
+    // skewer runs its own threads next to this; a few are enough to keep up with it.
+    const size_t num_threads = std::clamp<size_t>(thread_num, 1, 4);
+    std::string buf;
+    std::vector<Rec> recs;
+    std::vector<std::string> outs(num_threads);
+    size_t carry = 0;
+    bool eof = false;
+
+    // One chunk is sent while the next is prepared; get() waits for it and reports its failure.
+    std::vector<std::string> sending(num_threads);
+    std::future<void> sent;
+    auto send = [&] {
+        for (const auto& o : sending) {
+            // Fails (EPIPE) once skewer has stopped reading, e.g. when it
+            // could not open its output.
+            if (!o.empty() && fwrite(o.data(), 1, o.size(), wfp) != o.size())
+                throw std::runtime_error("Cannot pass reads to skewer");
+        }
+    };
+
+    for (;;) {
+        // Fill the chunk, keeping what was read if the source fails (a corrupt gzip file).
+        buf.resize(carry + chunk_bytes);
+        size_t total = carry;
+        try {
+            while (total < buf.size()) {
+                if (src->sgetc() == std::char_traits<char>::eof()) { eof = true; break; }
+                const auto avail = std::max<std::streamsize>(1, src->in_avail());
+                const auto n = src->sgetn(buf.data() + total, std::min<std::streamsize>(avail, buf.size() - total));
+                if (n <= 0) { eof = true; break; }
+                total += static_cast<size_t>(n);
+            }
+        } catch (...) {
+            eof = true;   // the general parser meets the same error
+        }
+        buf.resize(total);
+
+        // Split the complete records; what follows one must start the next (or be the end).
+        recs.clear();
+        size_t used = 0;
+        bool regular = true;
+        while (used < total) {
+            const char* base = buf.data();
+            size_t line_start[4], line_len[4];
+            auto p = used;
+            bool complete = true;
+            for (size_t l = 0; l < lines_per_record; ++l) {
+                const auto* nl = p < total ? static_cast<const char*>(memchr(base + p, '\n', total - p)) : nullptr;
+                if (!nl) { complete = false; break; }
+                line_start[l] = p;
+                line_len[l] = static_cast<size_t>(nl - (base + p));
+                p = static_cast<size_t>(nl - base) + 1;
+            }
+            if (!complete || (p == total && !eof)) break;
+            if (base[used] != start_symbol || (p < total && base[p] != start_symbol) || line_len[1] < min_len ||
+                (fastq && (base[line_start[2]] != '+' || line_len[3] != line_len[1]))) {
+                regular = false;
+                break;
+            }
+            recs.push_back({base + line_start[0] + 1, base + line_start[1], fastq ? base + line_start[3] : nullptr,
+                            static_cast<uint32_t>(line_len[0] - 1), static_cast<uint32_t>(line_len[1])});
+            used = p;
+        }
+
+        const auto n = recs.size();
+        const auto first = names5.size();
+        if (keep_tags) {
+            names5.resize(first + n);
+            tags5.resize(first + n);
+        }
+        for (auto& o : outs) o.clear();
+        #pragma omp parallel num_threads(num_threads)
+        {
+            const auto tid = static_cast<size_t>(omp_get_thread_num());
+            const auto nt = static_cast<size_t>(omp_get_num_threads());
+            auto& o = outs[tid];
+            for (auto idx = n * tid / nt; idx < n * (tid + 1) / nt; ++idx) {
+                const auto& r = recs[idx];
+                const std::string_view name(r.name, r.name_len), seq(r.seq, r.seq_len);
+                const auto id_end = std::min(name.find(' '), name.size());
+                if (keep_tags) {
+                    names5[first + idx].assign(name.substr(0, id_end));
+                    auto& rec_tags = tags5[first + idx];
+                    rec_tags.resize(num_tags5);
+                    for (size_t i = 0, pos = start_pos; i < num_tags5; ++i) {
+                        rec_tags[i].assign(seq.substr(pos, tag_structure5[i].second));
+                        pos += tag_structure5[i].second;
+                    }
+                }
+                o += start_symbol;
+                o.append(name.substr(0, id_end));
+                if (add_umi) {
+                    o += ':';
+                    o.append(seq.substr(umi_off, tag_structure5[umi_idx].second));
+                }
+                o.append(name.substr(id_end));
+                o += '\n';
+                const auto cut = std::min<size_t>(head_len, seq.size());
+                o.append(seq.substr(cut));
+                if (fastq) {
+                    o += "\n+\n";
+                    o.append(r.qual + cut, seq.size() - cut);
+                }
+                o += '\n';
+            }
+        }
+        if (sent.valid()) sent.get();
+        std::swap(outs, sending);
+        sent = std::async(std::launch::async, send);
+
+        buf.erase(0, used);
+        if (!regular || eof) {
+            sent.get();
+            return buf;
+        }
+        carry = buf.size();
+    }
+}
+
 void trim_heads_to_stream(std::string& reads_path, size_t head_len, std::vector<std::vector<std::string>>& tags5, std::vector<std::string>& names5, FILE* wfp) {
     std::unique_ptr<std::istream> ifs;
     if (is_gz_input) {
@@ -497,10 +668,14 @@ void trim_heads_to_stream(std::string& reads_path, size_t head_len, std::vector<
     const auto umi_idx = umi_index(tag_structure5);
     if (record_tags && num_tags5 > 0 && umi_idx != num_tags5) umi5_in_read_id = true;
 
+    // Whatever the fast path did not take, with any layout the Biovoltron parser accepts.
+    ChainedStreambuf rest_buf(trim_heads_fast(ifs->rdbuf(), head_len, start_pos, keep_tags, tags5, names5, wfp), ifs->rdbuf());
+    std::istream rest(&rest_buf);
+
     auto extract_tags5 = [&]<typename Record>() {
         Record rec;
         std::string out;
-        while (*ifs >> rec) {
+        while (rest >> rec) {
             std::vector<std::string> rec_tags;
             if (keep_tags && num_tags5 > 0) {
                 rec_tags.resize(num_tags5);
