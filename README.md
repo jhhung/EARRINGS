@@ -138,7 +138,7 @@ Single-End mode parameters
     Skip the read if the length of the read is less than ***--min_length*** after trimming.
   - Adapter setting
     - -a [ --adapter ] arg</br>
-    Use this 3' adapter instead of detecting one. An empty string (***-a ""***) means the reads have no 3' adapter, so nothing is trimmed. Without ***-a*** the adapter is detected, and nothing is trimmed if none is found.
+    Use this 3' adapter instead of detecting one. An empty string (***-a ""***) means the reads have no 3' adapter, so nothing is trimmed. Without ***-a*** the adapter is detected, and nothing is trimmed if none is found, or if it is in fewer than 0.5% of the (first 300,000) reads and ***--sensitive*** is not set.
   - Tag structure
     - -5 [ --5_tag_structure ] arg</br>
     The structure between the 5' adapter and the insert. Specify each element as name:length, separated by commas, in the actual order. Each name must be unique, except "UMI", which may appear once in both ***-5*** and ***-3***. Example: "UMI:6,cell_bc:8"

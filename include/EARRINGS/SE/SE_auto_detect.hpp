@@ -269,6 +269,25 @@ void write_alignment_sam(const std::string& reads_path, const Tailor& tailor, co
     std::cout << ")\n";
 }
 
+// An assembled sequence that few reads carry is more likely a piece of an RNA
+// (e.g. the second half of a ligated pair) than the adapter. Looks at reads from
+// the start of the input until enough of them carry it, so a real adapter costs
+// little; only a rare one reads all of the first 300,000.
+inline bool adapter_is_rare(const std::string& reads_path, const std::string& adapter) {
+    constexpr auto max_reads = size_t{300000};
+    constexpr auto min_share = 0.005;
+    const auto start = adapter.substr(0, init_kmer_size);
+    auto ifs = open_se_reads(reads_path);
+    auto num_reads = size_t{}, num_with = size_t{};
+    for (auto&& rec : make_input_view(*ifs)) {
+        ++num_reads;
+        // past the seed, where a tail can start: an RNA that contains it is not a read with an adapter
+        if (rec.seq.size() > seed_len && rec.seq.find(start, seed_len) != std::string::npos) ++num_with;
+        if (num_with >= min_share * max_reads || num_reads >= max_reads) break;
+    }
+    return num_with < min_share * num_reads;
+}
+
 template <class IndexType>
 std::pair<size_t, std::pair<std::string, bool>>
 seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
@@ -333,6 +352,15 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
     }
 
     adapter3 = std::get<0>(adapter3_info);
+
+    // Only where "no adapter" means no trimming; --sensitive says there is one.
+    if (!user_adapter3 && !trim_default_adapter3 && !is_sensitive && !adapter3.empty()
+            && adapter_is_rare(reads_path, adapter3)) {
+        std::cout << "[WARN] ignoring '" << adapter3 << "': found in fewer than 0.5% of the reads "
+                  << "(use -a or --sensitive if it is the adapter)\n";
+        adapter3.clear();
+        std::get<1>(adapter3_info) = false;
+    }
 
     // Default: assume the whole declared 3' tag region survives on the read
     // after skewer (peeled per-read by trim_tags3). Overridden below when the

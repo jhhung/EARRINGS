@@ -522,7 +522,8 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             value<std::string>(),
             "Use this 3' adapter instead of detecting one. An empty string (-a \"\") means the "
             "reads have no 3' adapter, so nothing is trimmed. Without -a the adapter is "
-            "detected, and nothing is trimmed if none is found.")
+            "detected, and nothing is trimmed if none is found, or if it is in fewer than 0.5% of "
+            "the (first 300,000) reads and --sensitive is not set.")
         ("sensitive",
             "By default, minimum number of kmers must exceed 10 during assembly adapters. "
             "However, if user have confidence that the dataset contains adapters, sensitive "
