@@ -314,9 +314,13 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
 
     std::string adapter3;
     std::pair<std::string, bool> adapter3_info;
-    adapter3_info = is_sensitive
-        ? assemble_adapters<true>(tails, init_kmer_size, 5)
-        : assemble_adapters<false>(tails, init_kmer_size, 3);
+    if (user_adapter3) {
+        adapter3_info = {*user_adapter3, !user_adapter3->empty() && detect_low_complexity(*user_adapter3, init_kmer_size)};
+    } else {
+        adapter3_info = is_sensitive
+            ? assemble_adapters<true>(tails, init_kmer_size, 5)
+            : assemble_adapters<false>(tails, init_kmer_size, 3);
+    }
 
     // head_len is either 0 (no 5' extension found in any read) or, thanks to
     // tailor.min_head_pos == tags5_total_len, at least tags5_total_len. Guard
@@ -336,9 +340,20 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
     tags3_kept_on_read = tags3_total_len;
     tags3_absorbed_prefix.clear();
 
-    if (adapter3 == "") {
+    if (user_adapter3) {
+        // Taken as given, like the declared tags: nothing is estimated from the tails.
+        if (adapter3.empty()) std::cout << "no 3' adapter (-a \"\"), 3' adapter trimming is off\n";
+        else std::cout << "3' adapter given: " << adapter3 << '\n';
+    } else if (adapter3 == "" && trim_default_adapter3) {
         std::cout << "unable to detect adapter, use default adapter\n";
         adapter3 = DEFAULT_ADAPTER1;
+    } else if (adapter3 == "") {
+        std::cout << "[WARN] unable to detect adapter, 3' adapter trimming is off (use -a to give the adapter)\n";
+        // The tags lie before an adapter that was not found, so their position is unknown.
+        if (!tag_structure3.empty()) {
+            std::cout << "[WARN] 3' tags will not be extracted\n";
+            tags3_kept_on_read = 0;
+        }
     } else {
         // is low complexity
         adapter3 = std::get<1>(adapter3_info)
@@ -348,7 +363,7 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
         std::cout << "3' adapter found: " << adapter3 << '\n';
 
         // The estimate below is only meaningful when adapter3 was actually
-        // assembled from this data; DEFAULT_ADAPTER1 (the fallback above) has
+        // assembled from this data; a given or default adapter (above) has
         // no relationship to these reads' tails.
         if (!tag_structure3.empty()) {
             const auto [est_len, reliable] = estimate_tags3_len(tails, adapter3);

@@ -253,3 +253,10 @@ float match_rate = 0.7, seq_cmp_rate = 0.9, adapter_cmp_rate = 0.8;
 // default adapters
 std::string DEFAULT_ADAPTER1("AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC");
 std::string DEFAULT_ADAPTER2("AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTA");
+
+// `single` -a: use this 3' adapter instead of detecting one ("" = the reads
+// have no adapter, nothing is trimmed). Unset: detect it.
+std::optional<std::string> user_adapter3;
+// What single-end detection returns when it finds no adapter. `single` empties
+// it (no trimming); `smallRNA` keeps the default adapter (its own -a).
+bool trim_default_adapter3(true);

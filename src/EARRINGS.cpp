@@ -519,8 +519,10 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             "frequency lower than this value will be skipped.")
         ("adapter,a",
          boost::program_options::
-            value<std::string>(&DEFAULT_ADAPTER1)->default_value(DEFAULT_ADAPTER1),
-            "Alternative adapter if auto-detect mechanism fails.")
+            value<std::string>(),
+            "Use this 3' adapter instead of detecting one. An empty string (-a \"\") means the "
+            "reads have no 3' adapter, so nothing is trimmed. Without -a the adapter is "
+            "detected, and nothing is trimmed if none is found.")
         ("sensitive",
             "By default, minimum number of kmers must exceed 10 during assembly adapters. "
             "However, if user have confidence that the dataset contains adapters, sensitive "
@@ -638,6 +640,15 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             is_sensitive = true;
         }
 
+        trim_default_adapter3 = false;
+        if (vm.count("adapter")) {
+            user_adapter3 = vm["adapter"].as<std::string>();
+            boost::to_upper(*user_adapter3);
+            if (user_adapter3->find_first_not_of("ACGTN") != std::string::npos) {
+                throw std::runtime_error("--adapter must contain only A, C, G, T or N");
+            }
+        }
+
         if (vm.count("max_5adapter_len")) {
             skipped_5prime_len = vm["max_5adapter_len"].as<size_t>();
         }
@@ -725,7 +736,7 @@ Skewer with adapter parameters passed by EARRINGS automatically.
         std::cout << "Max alignment: " << min_multi << ", No mismatch: " << no_mismatch << ", Fix ext len: " << fix_ext_len << std::endl;
         std::cout << "Prune factor: " << prune_factor << ", Sensitive mode: " << is_sensitive << std::endl;
         std::cout << "Min length: " << min_length  << std::endl;
-        std::cout << "Default adapter: " << DEFAULT_ADAPTER1 << std::endl;
+        std::cout << "Adapter: " << (!user_adapter3 ? "auto-detect" : user_adapter3->empty() ? "none" : *user_adapter3) << std::endl;
         std::cout << std::noboolalpha;
     } catch (std::exception& e) {
         std::cerr << "Error: " << e.what() << std::endl << opts << std::endl;
