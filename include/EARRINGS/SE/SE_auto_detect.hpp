@@ -52,16 +52,40 @@ auto make_input_view(std::istream &ifs) -> ranges::any_view<biovoltron::FastqRec
     }
 }
 
+struct Head {
+    size_t pos;                // where the match starts on the read
+    size_t tail_pos;           // where it ends, if the read has a tail
+    std::string seq;           // the read, if it has a tail
+};
+
+// The most common head length. A read whose match runs past the start of the
+// adapter has no insert there (e.g. an adapter dimer, whose adapter matches a
+// large reference by chance), so it has no say.
+inline size_t most_common_head_len(const std::vector<Head>& heads, const std::string& adapter) {
+    const auto start = adapter.substr(0, init_kmer_size);
+    std::unordered_map<size_t, size_t> head_lens;
+    for (const auto& head : heads) {
+        if (!start.empty() && !head.seq.empty()) {
+            const auto adapter_pos = head.seq.find(start);
+            if (adapter_pos != std::string::npos && adapter_pos + start.size() <= head.tail_pos) continue;
+        }
+        ++head_lens[head.pos];
+    }
+    return head_lens.empty()
+        ? size_t{}
+        : ranges::max_element(head_lens, {}, &std::pair<const size_t, size_t>::second)->first;
+}
+
 // Align reads from the start of the input until 3000 tails from distinct
-// reads are found (or the input ends), and return the most common head length
-// and the tails. Duplicate reads (e.g. adapter dimers) add their tail once, so
+// reads are found (or the input ends), and return the head of every aligned
+// read and the tails. Duplicate reads (e.g. adapter dimers) add their tail once, so
 // a few abundant sequences cannot dominate the assembly. Each thread takes the
 // next chunk of reads from a shared reader, so no thread waits for the slowest
 // read of a batch. Results are then cut back, in input order, to the shortest
 // prefix of reads that holds 3000 such tails, so they do not depend on the
 // thread count or timing.
 template<class IFStream, class Tailor>
-std::pair<size_t, std::vector<std::string>> tailor_pipeline(
+std::pair<std::vector<Head>, std::vector<std::string>> tailor_pipeline(
     IFStream &&ifs, Tailor &&tailor
 ) {
     constexpr auto npos = std::numeric_limits<uint32_t>::max();
@@ -72,6 +96,7 @@ std::pair<size_t, std::vector<std::string>> tailor_pipeline(
         size_t read_idx;
         size_t head_pos;
         std::optional<std::string> tail;
+        size_t tail_pos = 0;
         std::string seq;  // aligned read sequence, kept only for reads with a tail
     };
     std::unordered_set<std::string> seen_reads;
@@ -115,6 +140,7 @@ std::pair<size_t, std::vector<std::string>> tailor_pipeline(
                 auto& hit = hits.emplace_back(Hit{first_idx + i, alignment.head_pos, std::nullopt});
                 if (alignment.tail_pos != npos) {
                     hit.tail = alignment.seq.substr(alignment.tail_pos);
+                    hit.tail_pos = alignment.tail_pos;
                     hit.seq = alignment.seq;
                     auto is_new = false;
                     {
@@ -134,22 +160,18 @@ std::pair<size_t, std::vector<std::string>> tailor_pipeline(
     for (auto& hits : thread_hits) std::ranges::move(hits, std::back_inserter(all_hits));
     std::ranges::sort(all_hits, {}, &Hit::read_idx);
 
-    std::unordered_map<size_t, size_t> head_lens;
+    std::vector<Head> heads;
     std::vector<std::string> tails;
     tails.reserve(std::min(target_tails, num_tails.load()));
     std::unordered_set<std::string> taken_reads;
     for (auto& hit : all_hits) {
         if (tails.size() >= target_tails) break;
-        if (hit.head_pos != npos) ++head_lens[hit.head_pos];
-        if (hit.tail && taken_reads.insert(std::move(hit.seq)).second)
+        if (hit.tail && taken_reads.insert(hit.seq).second)
             tails.push_back(std::move(*hit.tail));
+        if (hit.head_pos != npos) heads.push_back({hit.head_pos, hit.tail_pos, std::move(hit.seq)});
     }
 
-    const auto head_len = head_lens.empty()
-        ? size_t{}
-        : ranges::max_element(head_lens, {}, &std::pair<const size_t, size_t>::second)->first;
-
-    return {head_len, tails};
+    return {std::move(heads), std::move(tails)};
 }
 
 // Open the SE reads (plain or gzip) as an istream.
@@ -308,7 +330,7 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
     tailor.fix_ext_len = fix_ext_len;
     tailor.min_head_pos = tags5_total_len;
 
-    size_t head_len;
+    std::vector<Head> heads;
     std::vector<std::string> tails;
     if (is_gz_input) {
         boost::iostreams::filtering_istream ifs;
@@ -320,12 +342,12 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
         ifs.push(*src);
         if (!ifs.good()) throw std::runtime_error("Can't open input gz stream normally\n");
 
-        std::tie(head_len, tails) = tailor_pipeline(ifs, tailor);
+        std::tie(heads, tails) = tailor_pipeline(ifs, tailor);
     } else {
         std::ifstream ifs(reads_path);
         if (!ifs.is_open() || !ifs.good()) throw std::runtime_error("Can't open input file normally\n");
 
-        std::tie(head_len, tails) = tailor_pipeline(ifs, tailor);
+        std::tie(heads, tails) = tailor_pipeline(ifs, tailor);
     }
 
     // Optional full per-read alignment output, reusing the loaded index / Tailor.
@@ -341,16 +363,6 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
             : assemble_adapters<false>(tails, init_kmer_size, 3);
     }
 
-    // head_len is either 0 (no 5' extension found in any read) or, thanks to
-    // tailor.min_head_pos == tags5_total_len, at least tags5_total_len. Guard
-    // the subtraction so the "not found" case reports 0 instead of underflowing.
-    const auto adapter5_len = head_len > tags5_total_len ? head_len - tags5_total_len : size_t{};
-    std::cout << "5' adapter length: " << adapter5_len << '\n';
-    if (head_len == 0 && tags5_total_len > 0) {
-        std::cout << "[WARN] declared 5' tag structure but no 5' region was detected; "
-                  << "5' tags will not be extracted\n";
-    }
-
     adapter3 = std::get<0>(adapter3_info);
 
     // Only where "no adapter" means no trimming; --sensitive says there is one.
@@ -360,6 +372,17 @@ seat_adapter_auto_detect_impl(std::string &reads_path, IndexType &bidir_index) {
                   << "(use -a or --sensitive if it is the adapter)\n";
         adapter3.clear();
         std::get<1>(adapter3_info) = false;
+    }
+
+    const auto head_len = most_common_head_len(heads, adapter3);
+    // head_len is either 0 (no 5' extension found in any read) or, thanks to
+    // tailor.min_head_pos == tags5_total_len, at least tags5_total_len. Guard
+    // the subtraction so the "not found" case reports 0 instead of underflowing.
+    const auto adapter5_len = head_len > tags5_total_len ? head_len - tags5_total_len : size_t{};
+    std::cout << "5' adapter length: " << adapter5_len << '\n';
+    if (head_len == 0 && tags5_total_len > 0) {
+        std::cout << "[WARN] declared 5' tag structure but no 5' region was detected; "
+                  << "5' tags will not be extracted\n";
     }
 
     // Default: assume the whole declared 3' tag region survives on the read
