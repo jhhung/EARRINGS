@@ -113,7 +113,7 @@ Single-End mode parameters
     The file prefix of Single-End FastQ output. Defaults to the input file name without its directory and extensions (e.g. ***data/S15_1.fastq.gz*** gives ***S15_1***), so the trimmed reads go to ***S15_1.fastq-trimmed.fastq*** and its log to ***S15_1.fastq-trimmed.log*** in the working directory.
   - Extract seeds / Alignment
     - -d [ --seed_len ] arg (=50)</br>
-    A read aligns only if it matches the reference over more than ***--seed_len*** contiguous bases, counting the part of the first ***--max_5adapter_len*** bases that still matches (so a short insert with no 5' adapter is not lost to ***-A***). This seed allows 1 mismatch at most, or none if ***--no_mismatch*** is set. The sequence after the first mismatch past the seed is reported as a tail.</br>
+    A read aligns only if it matches the reference over more than ***--seed_len*** contiguous bases, counting the part of the first ***--max_5adapter_len*** bases that still matches (so a short insert with no 5' adapter is not lost to it). This seed allows 1 mismatch at most, or none if ***--no_mismatch*** is set. The sequence after the first mismatch past the seed is reported as a tail.</br>
     It's recommended to set this to 18 for very short reads like **miRNA**, otherwise, it is recommended to set to 50.
     - -e [ --no_mismatch ]</br>
     By default, EARRINGS can tolerate 1 error base at most if be set as true, this flag can disable this mismatch toleration mechenism.
@@ -125,7 +125,7 @@ Single-End mode parameters
     - --sensitive</br>
     By default, minimum number of kmers must exceed 10 during assembly adapters. However, if user have confidence that the dataset contains adapters, sensitive mode would be more suitable.</br>
     Under sensitive mode, minimum number of kmers (***--prune_factor***) would not be restricted.
-    - -A [ --max_5adapter_len ] arg (=7)</br>
+    - --max_5adapter_len arg (=5)</br>
     Maximum possible length of the 5' end adapter.
     - --fix_ext_len arg (=0)</br>
     Tolerate a mismatch inside the matched region. After a repaired mismatch, keep the match if it runs at least this many more bases, even when it then stops before the read end (0: off, the match must reach the read end). A smaller value rescues more reads whose error is near the end of the match, but also accepts more chance matches, mainly against large genomes. A larger value is stricter, but cannot rescue errors within this many bases of the end. Intended for inserts whose adapter is already removed; on reads that still carry an adapter it can extend a match a few bases into the adapter by chance. A suitable value depends on the read length, the reference size and the error rate, so check it on your own data, e.g. by aligning shuffled copies of the reads as a negative control. When enabled, consider requiring a longer minimum match on large references.

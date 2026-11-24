@@ -108,7 +108,14 @@ size_t seed_len(18);
 size_t min_multi(0);
 float prune_factor(0.1);
 bool no_mismatch(false);
-size_t skipped_5prime_len(7);
+size_t skipped_5prime_len(5);
+
+// Single-end trimming matches at most this many leading bases of the detected
+// adapter: later bases add reads lost to an indel or to tag bases that were
+// assembled into the adapter (e.g. a UMI inside it), and 16-20 gave the same
+// result. skewer derives -k from -r (2 at -r 0.2), so -k is set explicitly:
+// with 2, adapter-free reads lose a 2-3 nt end by chance about 4x as often.
+inline constexpr size_t MAX_TRIM_ADAPTER_LEN = 18;
 size_t fix_ext_len(0);
 size_t init_kmer_size(10);
 size_t kmer_step(5);

@@ -99,9 +99,10 @@ int main(int argc, const char* argv[]) {
             "-o", ofs_name[0],
             "-l", std::to_string(min_length),
             "-t", std::to_string(thread_num),
-            "-x", std::get<0>(adapter3_info)
+            "-x", std::get<0>(adapter3_info).substr(0, MAX_TRIM_ADAPTER_LEN),
+            "-r", "0.2",
+            "-k", "3"
         };
-        if (is_sensitive) skewer_args.insert(skewer_args.end(), {"-r", "0.2"});
         if (std::get<1>(adapter3_info)) skewer_args.emplace_back("-C");
         // Tags that are not recorded are cut off by skewer itself while it writes each read.
         if (!record_tags && tags3_kept_on_read > 0) {
@@ -530,9 +531,9 @@ Skewer with adapter parameters passed by EARRINGS automatically.
             "mode would be more suitable.\n"
             "Under sensitive mode, minimum number of kmers (--prune_factor) would not be "
             "restricted.")
-        ("max_5adapter_len,A",
+        ("max_5adapter_len",
          boost::program_options::
-            value<size_t>()->default_value(7),
+            value<size_t>()->default_value(5),
             "Maximum possible length of the 5' end adapter.")
         ("fix_ext_len",
          boost::program_options::
